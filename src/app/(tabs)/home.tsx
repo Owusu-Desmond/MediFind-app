@@ -41,14 +41,14 @@ export default function HomeScreen() {
       <View className="px-6 pt-4 pb-2">
         <View className="flex-row items-center justify-between mb-1">
           <View>
-            <Text className="text-slate-400 text-xs font-bold">
+            <Text className="text-slate-400 text-xs font-bold uppercase tracking-[0.2em]">
               Welcome back 👋
             </Text>
-            <Text className="text-slate-800 text-xl font-bold">
+            <Text className="text-slate-900 text-xl font-bold mt-1">
               {user?.name?.split(" ")[0] ?? "Patient"}
             </Text>
           </View>
-          <TouchableOpacity className="w-10 h-10 rounded-xl bg-white border border-slate-200 items-center justify-center">
+          <TouchableOpacity className="w-10 h-10 rounded-xl bg-white border border-slate-200 items-center justify-center shadow-sm">
             <Ionicons name="notifications-outline" size={20} color="#0f766e" />
           </TouchableOpacity>
         </View>
@@ -77,9 +77,9 @@ export default function HomeScreen() {
 
       <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
         {/* Quick Stats Banner */}
-        <View className="mx-6 mt-4 bg-primary rounded-3xl p-5 flex-row items-center justify-between overflow-hidden">
+        <View className="mx-6 mt-4 bg-primary rounded-[32px] p-5 flex-row items-center justify-between overflow-hidden">
           <View className="flex-1">
-            <Text className="text-white/70 text-xs font-bold uppercase tracking-wider">
+            <Text className="text-white/70 text-xs font-bold uppercase tracking-[0.2em]">
               Nearby Availability
             </Text>
             <Text className="text-white text-2xl font-bold mt-1">

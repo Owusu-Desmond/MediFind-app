@@ -208,10 +208,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   useEffect(() => {
     const load = async () => {
-      const storedUser = await AsyncStorage.getItem("mf_user");
       const storedReservations = await AsyncStorage.getItem("mf_reservations");
       const storedSaved = await AsyncStorage.getItem("mf_saved_pharmacies");
-      if (storedUser) setUser(JSON.parse(storedUser));
       if (storedReservations) setReservations(JSON.parse(storedReservations));
       if (storedSaved) setSavedPharmacies(JSON.parse(storedSaved));
     };

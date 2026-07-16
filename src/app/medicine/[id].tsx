@@ -37,8 +37,7 @@ export default function MedicineDetailScreen() {
       Alert.alert("Out of Stock", "This medicine is currently unavailable.");
       return;
     }
-    createReservation(medicine, qty);
-    setReserved(true);
+    router.push("/reservation/select-pharmacy" as never);
   };
 
   return (

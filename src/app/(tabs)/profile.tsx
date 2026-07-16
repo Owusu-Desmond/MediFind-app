@@ -56,6 +56,8 @@ export default function ProfileScreen() {
     },
   ];
 
+  type MenuItem = (typeof menuItems)[number]["items"][number] & { badge?: string };
+
   return (
     <SafeAreaView className="flex-1 bg-slate-50" edges={["top"]}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 32 }}>
@@ -121,9 +123,9 @@ export default function ProfileScreen() {
                       <Ionicons name={item.icon} size={18} color={item.color} />
                     </View>
                     <Text className="flex-1 text-sm font-semibold text-slate-700">{item.label}</Text>
-                    {item.badge ? (
+                    {(item as MenuItem).badge ? (
                       <View className="bg-slate-100 px-2 py-0.5 rounded-full mr-2">
-                        <Text className="text-[10px] font-bold text-slate-500">{item.badge}</Text>
+                        <Text className="text-[10px] font-bold text-slate-500">{(item as MenuItem).badge}</Text>
                       </View>
                     ) : null}
                     <Ionicons name="chevron-forward" size={16} color="#cbd5e1" />
