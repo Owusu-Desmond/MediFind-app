@@ -34,7 +34,17 @@ export interface Reservation {
   medicineName: string;
   pharmacyName: string;
   pharmacyId: string;
-  status: "Pending" | "Ready" | "Collected" | "Cancelled";
+  fulfillmentMethod: "Pickup" | "Delivery";
+  status:
+    | "Pending Approval"
+    | "Approved"
+    | "Paid"
+    | "Ready for Pickup"
+    | "Preparing"
+    | "Out for Delivery"
+    | "Delivered"
+    | "Collected"
+    | "Cancelled";
   date: string;
   refNumber: string;
   quantity: number;
@@ -59,6 +69,8 @@ interface AppContextType {
   logout: () => void;
   register: (name: string, email: string, password: string, phone: string) => void;
   createReservation: (medicine: Medicine, qty: number) => void;
+  markReservationPaid: (id: string) => void;
+  advanceReservationStatus: (id: string) => void;
   cancelReservation: (id: string) => void;
   savedPharmacies: string[];
   toggleSavePharmacy: (id: string) => void;
@@ -198,11 +210,72 @@ const samplePharmacies: Pharmacy[] = [
   },
 ];
 
+const sampleReservations: Reservation[] = [
+  {
+    id: "res-demo-approved-1",
+    medicineId: "med-5",
+    medicineName: "Artemether/Lumefantrine 80/480mg",
+    pharmacyName: "Ghana National Pharmacy",
+    pharmacyId: "phr-1",
+    fulfillmentMethod: "Delivery",
+    status: "Approved",
+    date: new Date().toISOString().split("T")[0],
+    refNumber: "MF-DEMO1",
+    quantity: 2,
+  },
+];
+
+const ensureDemoReservation = (reservations: Reservation[]) => {
+  if (reservations.some((reservation) => reservation.id === "res-demo-approved-1")) {
+    return reservations;
+  }
+
+  return [sampleReservations[0], ...reservations];
+};
+
+const normalizeReservation = (reservation: any): Reservation => {
+  const mapStatus = (status: string | undefined): Reservation["status"] => {
+    switch (status) {
+      case "Pending":
+        return "Pending Approval";
+      case "Ready":
+        return "Ready for Pickup";
+      case "Collected":
+        return "Collected";
+      case "Cancelled":
+        return "Cancelled";
+      case "Approved":
+      case "Paid":
+      case "Preparing":
+      case "Out for Delivery":
+      case "Delivered":
+      case "Ready for Pickup":
+      case "Pending Approval":
+        return status;
+      default:
+        return "Pending Approval";
+    }
+  };
+
+  return {
+    id: reservation.id,
+    medicineId: reservation.medicineId,
+    medicineName: reservation.medicineName,
+    pharmacyName: reservation.pharmacyName,
+    pharmacyId: reservation.pharmacyId,
+    fulfillmentMethod: reservation.fulfillmentMethod ?? "Pickup",
+    status: mapStatus(reservation.status),
+    date: reservation.date,
+    refNumber: reservation.refNumber,
+    quantity: reservation.quantity ?? 1,
+  };
+};
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [medicines] = useState<Medicine[]>(sampleMedicines);
   const [pharmacies] = useState<Pharmacy[]>(samplePharmacies);
-  const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [reservations, setReservations] = useState<Reservation[]>(sampleReservations);
   const [searchQuery, setSearchQuery] = useState("");
   const [savedPharmacies, setSavedPharmacies] = useState<string[]>([]);
 
@@ -210,7 +283,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const load = async () => {
       const storedReservations = await AsyncStorage.getItem("mf_reservations");
       const storedSaved = await AsyncStorage.getItem("mf_saved_pharmacies");
-      if (storedReservations) setReservations(JSON.parse(storedReservations));
+
+      if (storedReservations) {
+        try {
+          const parsedReservations = JSON.parse(storedReservations);
+          const normalizedReservations = Array.isArray(parsedReservations)
+            ? parsedReservations.map(normalizeReservation)
+            : sampleReservations;
+          setReservations(ensureDemoReservation(normalizedReservations));
+        } catch {
+          setReservations(sampleReservations);
+        }
+      } else {
+        setReservations(sampleReservations);
+      }
+
       if (storedSaved) setSavedPharmacies(JSON.parse(storedSaved));
     };
     load();
@@ -261,12 +348,47 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       medicineName: medicine.name,
       pharmacyName: medicine.pharmacy,
       pharmacyId: medicine.pharmacyId,
-      status: "Pending",
+      fulfillmentMethod: "Pickup",
+      status: "Pending Approval",
       date: new Date().toISOString().split("T")[0],
       refNumber: `MF-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
       quantity: qty,
     };
     setReservations((prev) => [newRes, ...prev]);
+  };
+
+  const markReservationPaid = (id: string) => {
+    setReservations((prev) =>
+      prev.map((reservation) =>
+        reservation.id === id
+          ? { ...reservation, status: "Paid" }
+          : reservation
+      )
+    );
+  };
+
+  const advanceReservationStatus = (id: string) => {
+    setReservations((prev) =>
+      prev.map((reservation) => {
+        if (reservation.id !== id) return reservation;
+
+        switch (reservation.status) {
+          case "Paid":
+            return {
+              ...reservation,
+              status: reservation.fulfillmentMethod === "Delivery" ? "Preparing" : "Ready for Pickup",
+            };
+          case "Preparing":
+            return { ...reservation, status: "Out for Delivery" };
+          case "Out for Delivery":
+            return { ...reservation, status: "Delivered" };
+          case "Ready for Pickup":
+            return { ...reservation, status: "Collected" };
+          default:
+            return reservation;
+        }
+      })
+    );
   };
 
   const cancelReservation = (id: string) => {
@@ -294,6 +416,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         logout,
         register,
         createReservation,
+        markReservationPaid,
+        advanceReservationStatus,
         cancelReservation,
         savedPharmacies,
         toggleSavePharmacy,

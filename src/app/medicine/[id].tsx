@@ -13,7 +13,7 @@ import { useApp } from "@/context/AppContext";
 
 export default function MedicineDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { medicines, pharmacies, createReservation } = useApp();
+  const { medicines, pharmacies } = useApp();
   const router = useRouter();
   const [qty, setQty] = useState(1);
   const [reserved, setReserved] = useState(false);
@@ -37,7 +37,13 @@ export default function MedicineDetailScreen() {
       Alert.alert("Out of Stock", "This medicine is currently unavailable.");
       return;
     }
-    router.push("/reservation/select-pharmacy" as never);
+    router.push({
+      pathname: "/reservation/details-notes",
+      params: {
+        medicineId: medicine.id,
+        quantity: String(qty),
+      },
+    } as never);
   };
 
   return (

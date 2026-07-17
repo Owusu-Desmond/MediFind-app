@@ -1,18 +1,20 @@
 import React from "react";
 import { View, Text, TouchableOpacity, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useApp } from "@/context/AppContext";
 
 export default function FinalReviewScreen() {
   const router = useRouter();
   const { medicines, createReservation } = useApp();
+  const { medicineId, quantity } = useLocalSearchParams<{ medicineId?: string; quantity?: string }>();
+  const selectedQuantity = Number(quantity ?? "1") || 1;
+  const medicine = medicines.find((item) => item.id === medicineId) ?? medicines[0];
 
   const handleSubmit = () => {
-    const medicine = medicines[0];
     if (medicine) {
-      createReservation(medicine, 1);
+      createReservation(medicine, selectedQuantity);
     }
     router.push("/reservation/request-submitted" as never);
   };
@@ -25,7 +27,7 @@ export default function FinalReviewScreen() {
             <TouchableOpacity onPress={() => router.back()} className="w-10 h-10 rounded-xl bg-white border border-slate-200 items-center justify-center shadow-sm">
               <Ionicons name="arrow-back" size={20} color="#0f766e" />
             </TouchableOpacity>
-            <Text className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Step 7 of 8</Text>
+            <Text className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Step 6 of 7</Text>
             <View className="w-10" />
           </View>
           <Text className="text-slate-400 text-xs font-bold uppercase tracking-[0.2em]">Reservation</Text>
@@ -35,8 +37,9 @@ export default function FinalReviewScreen() {
 
         <View className="mx-6 mt-4 bg-white rounded-[32px] p-5 border border-slate-200 shadow-sm gap-3">
           {[
-            ["Medicine", "Paracetamol 500mg"],
-            ["Pharmacy", "Ghana National Pharmacy"],
+            ["Medicine", medicine.name],
+            ["Pharmacy", medicine.pharmacy],
+            ["Quantity", `${selectedQuantity} unit${selectedQuantity === 1 ? "" : "s"}`],
             ["Fulfillment", "Pickup at Pharmacy"],
             ["Payment", "Pay at Pharmacy"],
             ["Pickup", "Today · 4:00 PM - 6:00 PM"],

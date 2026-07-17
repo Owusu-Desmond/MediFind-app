@@ -1,11 +1,12 @@
 import React from "react";
 import { View, Text, TouchableOpacity, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
 export default function PaymentPreferenceScreen() {
   const router = useRouter();
+  const { medicineId, quantity } = useLocalSearchParams<{ medicineId?: string; quantity?: string }>();
 
   return (
     <SafeAreaView className="flex-1 bg-slate-50" edges={["top"]}>
@@ -15,7 +16,7 @@ export default function PaymentPreferenceScreen() {
             <TouchableOpacity onPress={() => router.back()} className="w-10 h-10 rounded-xl bg-white border border-slate-200 items-center justify-center shadow-sm">
               <Ionicons name="arrow-back" size={20} color="#0f766e" />
             </TouchableOpacity>
-            <Text className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Step 4 of 8</Text>
+            <Text className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Step 3 of 7</Text>
             <View className="w-10" />
           </View>
           <Text className="text-slate-400 text-xs font-bold uppercase tracking-[0.2em]">Reservation</Text>
@@ -50,7 +51,19 @@ export default function PaymentPreferenceScreen() {
         </View>
 
         <View className="px-6 mt-5">
-          <TouchableOpacity onPress={() => router.push("/reservation/pharmacy-payment-info" as never)} className="bg-primary rounded-2xl py-4 items-center shadow-lg" style={{ shadowColor: "#0f766e", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.22, shadowRadius: 16 }}>
+          <TouchableOpacity
+            onPress={() =>
+              router.push({
+                pathname: "/reservation/pharmacy-payment-info",
+                params: {
+                  medicineId: medicineId ?? "",
+                  quantity: quantity ?? "1",
+                },
+              } as never)
+            }
+            className="bg-primary rounded-2xl py-4 items-center shadow-lg"
+            style={{ shadowColor: "#0f766e", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.22, shadowRadius: 16 }}
+          >
             <Text className="text-white font-bold">Continue</Text>
           </TouchableOpacity>
         </View>

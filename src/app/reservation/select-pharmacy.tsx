@@ -1,8 +1,9 @@
 import React from "react";
 import { View, Text, TouchableOpacity, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useEffect } from "react";
 
 const pharmacies = [
   { name: "Ghana National Pharmacy", distance: "0.3 km", rating: 4.8, open: true, stock: true },
@@ -12,6 +13,17 @@ const pharmacies = [
 
 export default function SelectPharmacyScreen() {
   const router = useRouter();
+  const { medicineId, quantity } = useLocalSearchParams<{ medicineId?: string; quantity?: string }>();
+
+  useEffect(() => {
+    router.replace({
+      pathname: "/reservation/details-notes",
+      params: {
+        medicineId: medicineId ?? "",
+        quantity: quantity ?? "1",
+      },
+    } as never);
+  }, [medicineId, quantity, router]);
 
   return (
     <SafeAreaView className="flex-1 bg-slate-50" edges={["top"]}>
