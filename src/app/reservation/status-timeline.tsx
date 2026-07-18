@@ -11,22 +11,26 @@ export default function StatusTimelineScreen() {
   const { reservationId } = useLocalSearchParams<{ reservationId?: string }>();
   const reservation = reservations.find((item) => item.id === reservationId);
 
-  const steps = reservation?.fulfillmentMethod === "Delivery"
-    ? [
-        { title: "Pending Pharmacy Approval", active: true },
-        { title: "Approved", active: false },
-        { title: "Paid", active: false },
-        { title: "Preparing", active: false },
-        { title: "Out for Delivery", active: false },
-        { title: "Delivered", active: false },
-      ]
-    : [
-        { title: "Pending Pharmacy Approval", active: true },
-        { title: "Approved", active: false },
-        { title: "Paid", active: false },
-        { title: "Ready for Pickup", active: false },
-        { title: "Collected", active: false },
-      ];
+  let steps = [];
+  
+  if (reservation?.fulfillmentMethod === "Delivery") {
+    steps = [
+      { title: "Pending Pharmacy Review", active: true },
+      { title: "Approved", active: false },
+      ...(reservation.paymentMethod === "Pay Online" ? [{ title: "Paid", active: false }] : []),
+      { title: "Preparing", active: false },
+      { title: "Out for Delivery", active: false },
+      { title: "Delivered", active: false },
+    ];
+  } else {
+    steps = [
+      { title: "Pending Pharmacy Review", active: true },
+      { title: "Approved", active: false },
+      ...(reservation?.paymentMethod === "Pay Online" ? [{ title: "Paid", active: false }] : []),
+      { title: "Ready for Pickup", active: false },
+      { title: "Collected", active: false },
+    ];
+  }
 
   const activeIndex = reservation
     ? steps.findIndex((step) => step.title === reservation.status)

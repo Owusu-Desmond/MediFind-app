@@ -5,8 +5,9 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
 export default function FulfillmentMethodScreen() {
+  const [fulfillment, setFulfillment] = React.useState<"Pickup" | "Delivery">("Pickup");
+  const { reservationId } = useLocalSearchParams<{ reservationId?: string }>();
   const router = useRouter();
-  const { medicineId, quantity } = useLocalSearchParams<{ medicineId?: string; quantity?: string }>();
 
   return (
     <SafeAreaView className="flex-1 bg-slate-50" edges={["top"]}>
@@ -26,21 +27,25 @@ export default function FulfillmentMethodScreen() {
 
         <View className="mx-6 mt-4 gap-3">
           {[
-            { title: "Pickup at Pharmacy", desc: "Collect your medicine directly from the selected branch.", active: true },
-            { title: "Home Delivery", desc: "Have the pharmacy send it to your address.", active: false },
+            { title: "Pickup at Pharmacy", desc: "Collect your medicine directly from the selected branch.", value: "Pickup" as const, icon: "storefront" },
+            { title: "Home Delivery", desc: "Have the pharmacy send it to your address.", value: "Delivery" as const, icon: "car-outline" },
           ].map((item) => (
-            <View key={item.title} className={`rounded-[32px] p-5 border ${item.active ? "bg-teal-50 border-teal-100" : "bg-white border-slate-200"}`}>
+            <TouchableOpacity
+              key={item.title}
+              onPress={() => setFulfillment(item.value)}
+              className={`rounded-[32px] p-5 border ${fulfillment === item.value ? "bg-teal-50 border-teal-100" : "bg-white border-slate-200"}`}
+            >
               <View className="flex-row items-start gap-4">
-                <View className={`w-12 h-12 rounded-2xl items-center justify-center ${item.active ? "bg-primary" : "bg-slate-100"}`}>
-                  <Ionicons name={item.active ? "storefront" : "car-outline"} size={22} color={item.active ? "white" : "#64748b"} />
+                <View className={`w-12 h-12 rounded-2xl items-center justify-center ${fulfillment === item.value ? "bg-primary" : "bg-slate-100"}`}>
+                  <Ionicons name={item.icon as any} size={22} color={fulfillment === item.value ? "white" : "#64748b"} />
                 </View>
                 <View className="flex-1">
                   <Text className="text-slate-900 font-bold text-base">{item.title}</Text>
                   <Text className="text-slate-500 text-xs mt-1 leading-relaxed">{item.desc}</Text>
                 </View>
-                <View className={`w-5 h-5 rounded-full border-2 ${item.active ? "border-primary bg-primary" : "border-slate-300"}`} />
+                <View className={`w-5 h-5 rounded-full border-2 ${fulfillment === item.value ? "border-primary bg-primary" : "border-slate-300"}`} />
               </View>
-            </View>
+            </TouchableOpacity>
           ))}
         </View>
 
@@ -50,8 +55,8 @@ export default function FulfillmentMethodScreen() {
               router.push({
                 pathname: "/reservation/payment-preference",
                 params: {
-                  medicineId: medicineId ?? "",
-                  quantity: quantity ?? "1",
+                  reservationId: reservationId ?? "",
+                  fulfillmentMethod: fulfillment,
                 },
               } as never)
             }

@@ -13,8 +13,8 @@ export default function RequestSubmittedScreen() {
         <View className="w-20 h-20 rounded-full bg-emerald-50 items-center justify-center mb-4">
           <Ionicons name="paper-plane-outline" size={36} color="#059669" />
         </View>
-        <Text className="text-slate-900 text-2xl font-bold text-center">Pending Pharmacy Approval</Text>
-        <Text className="text-slate-500 text-sm text-center mt-3 leading-relaxed">Your reservation has been sent to the pharmacy. Payment will unlock after approval.</Text>
+        <Text className="text-slate-900 text-2xl font-bold text-center">Pending Pharmacy Review</Text>
+        <Text className="text-slate-500 text-sm text-center mt-3 leading-relaxed">Your reservation request has been sent to the pharmacy for review. Fulfillment options and payment will unlock after approval.</Text>
 
         <TouchableOpacity onPress={() => router.replace("/(tabs)/reservations")} className="bg-primary rounded-2xl py-4 px-6 items-center mt-6 self-stretch shadow-lg" style={{ shadowColor: "#0f766e", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.22, shadowRadius: 16 }}>
           <Text className="text-white font-bold">Go to Reservations</Text>

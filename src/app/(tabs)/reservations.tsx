@@ -11,12 +11,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useApp, Reservation } from "@/context/AppContext";
 
-const STATUS_TABS = ["All", "Pending Approval", "Approved", "Paid", "In Progress", "Completed", "Cancelled"] as const;
+const STATUS_TABS = ["All", "Pending Pharmacy Review", "Approved", "Paid", "In Progress", "Completed", "Cancelled"] as const;
 
 const reservationGroup = (status: Reservation["status"]) => {
   switch (status) {
-    case "Pending Approval":
-      return "Pending Approval";
+    case "Pending Pharmacy Review":
+      return "Pending Pharmacy Review";
     case "Approved":
       return "Approved";
     case "Paid":
@@ -34,7 +34,7 @@ const reservationGroup = (status: Reservation["status"]) => {
 
 export default function ReservationsScreen() {
   const router = useRouter();
-  const { reservations, cancelReservation, markReservationPaid, advanceReservationStatus } = useApp();
+  const { reservations, cancelReservation, markReservationPaid, advanceReservationStatus, approveReservation } = useApp();
   const [activeTab, setActiveTab] = useState<string>("All");
 
   const filtered = activeTab === "All"
@@ -43,7 +43,7 @@ export default function ReservationsScreen() {
 
   const statusConfig = (status: Reservation["status"]) => {
     switch (status) {
-      case "Pending Approval":
+      case "Pending Pharmacy Review":
         return { bg: "bg-amber-50", border: "border-amber-100", text: "text-amber-700", icon: "time-outline" as const, dot: "bg-amber-500" };
       case "Approved":
         return { bg: "bg-sky-50", border: "border-sky-100", text: "text-sky-700", icon: "checkmark-circle-outline" as const, dot: "bg-sky-500" };
@@ -75,10 +75,10 @@ export default function ReservationsScreen() {
     );
   };
 
-  const handlePay = (reservation: Reservation) => {
+  const handleCompleteOptions = (reservation: Reservation) => {
     router.push({
-      pathname: "/reservation/confirmation-success",
-      params: { reservationId: reservation.id },
+      pathname: "/reservation/fulfillment-method",
+      params: { medicineId: reservation.medicineId, reservationId: reservation.id },
     } as never);
   };
 
@@ -208,7 +208,7 @@ export default function ReservationsScreen() {
                 </View>
 
                 {/* Actions */}
-                {res.status === "Pending Approval" && (
+                {res.status === "Pending Pharmacy Review" && (
                   <View className="flex-row items-center gap-3 mt-4">
                     <TouchableOpacity
                       onPress={() => handleCancel(res.id, res.medicineName)}
@@ -217,9 +217,12 @@ export default function ReservationsScreen() {
                       <Ionicons name="close-outline" size={16} color="#dc2626" />
                       <Text className="text-red-600 text-xs font-bold">Cancel</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity className="flex-1 flex-row items-center justify-center gap-1.5 bg-primary py-3 rounded-2xl">
-                      <Ionicons name="call-outline" size={16} color="white" />
-                      <Text className="text-white text-xs font-bold">Call Pharmacy</Text>
+                    <TouchableOpacity
+                      onPress={() => approveReservation(res.id)}
+                      className="flex-1 flex-row items-center justify-center gap-1.5 bg-primary py-3 rounded-2xl"
+                    >
+                      <Ionicons name="checkmark-done-outline" size={16} color="white" />
+                      <Text className="text-white text-xs font-bold">Mock Approve</Text>
                     </TouchableOpacity>
                   </View>
                 )}
@@ -227,11 +230,11 @@ export default function ReservationsScreen() {
                 {res.status === "Approved" && (
                   <View className="flex-row items-center gap-3 mt-4">
                     <TouchableOpacity
-                      onPress={() => handlePay(res)}
-                      className="flex-1 flex-row items-center justify-center gap-1.5 border border-teal-200 py-3 rounded-2xl"
+                      onPress={() => handleCompleteOptions(res)}
+                      className="flex-[1.5] flex-row items-center justify-center gap-1.5 border border-teal-200 py-3 rounded-2xl bg-teal-50"
                     >
-                      <Ionicons name="cash-outline" size={16} color="#0f766e" />
-                      <Text className="text-primary text-xs font-bold">Review & Pay</Text>
+                      <Ionicons name="options-outline" size={16} color="#0f766e" />
+                      <Text className="text-primary text-xs font-bold">Complete Options</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       onPress={() => router.push({ pathname: "/reservation/status-timeline", params: { reservationId: res.id } } as never)}

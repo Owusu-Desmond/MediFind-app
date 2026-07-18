@@ -34,9 +34,10 @@ export interface Reservation {
   medicineName: string;
   pharmacyName: string;
   pharmacyId: string;
-  fulfillmentMethod: "Pickup" | "Delivery";
+  fulfillmentMethod?: "Pickup" | "Delivery";
+  paymentMethod?: string;
   status:
-    | "Pending Approval"
+    | "Pending Pharmacy Review"
     | "Approved"
     | "Paid"
     | "Ready for Pickup"
@@ -46,6 +47,8 @@ export interface Reservation {
     | "Collected"
     | "Cancelled";
   date: string;
+  pickupDate?: string;
+  notes?: string;
   refNumber: string;
   quantity: number;
 }
@@ -68,7 +71,9 @@ interface AppContextType {
   login: (email: string, password: string) => boolean;
   logout: () => void;
   register: (name: string, email: string, password: string, phone: string) => void;
-  createReservation: (medicine: Medicine, qty: number) => void;
+  createReservation: (medicine: Medicine, qty: number, pickupDate: string, notes: string) => void;
+  approveReservation: (id: string) => void;
+  updateFulfillmentAndPayment: (id: string, fulfillmentMethod: "Pickup" | "Delivery", paymentMethod: string) => void;
   markReservationPaid: (id: string) => void;
   advanceReservationStatus: (id: string) => void;
   cancelReservation: (id: string) => void;
@@ -217,7 +222,6 @@ const sampleReservations: Reservation[] = [
     medicineName: "Artemether/Lumefantrine 80/480mg",
     pharmacyName: "Ghana National Pharmacy",
     pharmacyId: "phr-1",
-    fulfillmentMethod: "Delivery",
     status: "Approved",
     date: new Date().toISOString().split("T")[0],
     refNumber: "MF-DEMO1",
@@ -237,7 +241,8 @@ const normalizeReservation = (reservation: any): Reservation => {
   const mapStatus = (status: string | undefined): Reservation["status"] => {
     switch (status) {
       case "Pending":
-        return "Pending Approval";
+      case "Pending Approval":
+        return "Pending Pharmacy Review";
       case "Ready":
         return "Ready for Pickup";
       case "Collected":
@@ -250,10 +255,10 @@ const normalizeReservation = (reservation: any): Reservation => {
       case "Out for Delivery":
       case "Delivered":
       case "Ready for Pickup":
-      case "Pending Approval":
+      case "Pending Pharmacy Review":
         return status;
       default:
-        return "Pending Approval";
+        return "Pending Pharmacy Review";
     }
   };
 
@@ -263,9 +268,12 @@ const normalizeReservation = (reservation: any): Reservation => {
     medicineName: reservation.medicineName,
     pharmacyName: reservation.pharmacyName,
     pharmacyId: reservation.pharmacyId,
-    fulfillmentMethod: reservation.fulfillmentMethod ?? "Pickup",
+    fulfillmentMethod: reservation.fulfillmentMethod,
+    paymentMethod: reservation.paymentMethod,
     status: mapStatus(reservation.status),
     date: reservation.date,
+    pickupDate: reservation.pickupDate,
+    notes: reservation.notes,
     refNumber: reservation.refNumber,
     quantity: reservation.quantity ?? 1,
   };
@@ -341,20 +349,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     AsyncStorage.setItem("mf_user", JSON.stringify(newUser));
   };
 
-  const createReservation = (medicine: Medicine, qty: number) => {
+  const createReservation = (medicine: Medicine, qty: number, pickupDate: string, notes: string) => {
     const newRes: Reservation = {
       id: `res-${Date.now()}`,
       medicineId: medicine.id,
       medicineName: medicine.name,
       pharmacyName: medicine.pharmacy,
       pharmacyId: medicine.pharmacyId,
-      fulfillmentMethod: "Pickup",
-      status: "Pending Approval",
+      status: "Pending Pharmacy Review",
       date: new Date().toISOString().split("T")[0],
+      pickupDate,
+      notes,
       refNumber: `MF-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
       quantity: qty,
     };
     setReservations((prev) => [newRes, ...prev]);
+  };
+
+  const approveReservation = (id: string) => {
+    setReservations((prev) =>
+      prev.map((reservation) =>
+        reservation.id === id
+          ? { ...reservation, status: "Approved" }
+          : reservation
+      )
+    );
+  };
+
+  const updateFulfillmentAndPayment = (id: string, fulfillmentMethod: "Pickup" | "Delivery", paymentMethod: string) => {
+    setReservations((prev) =>
+      prev.map((reservation) =>
+        reservation.id === id
+          ? { ...reservation, fulfillmentMethod, paymentMethod, status: paymentMethod === "Pay Online" ? "Paid" : (fulfillmentMethod === "Pickup" ? "Ready for Pickup" : "Preparing") }
+          : reservation
+      )
+    );
   };
 
   const markReservationPaid = (id: string) => {
@@ -416,6 +445,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         logout,
         register,
         createReservation,
+        approveReservation,
+        updateFulfillmentAndPayment,
         markReservationPaid,
         advanceReservationStatus,
         cancelReservation,

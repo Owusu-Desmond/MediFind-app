@@ -38,10 +38,10 @@ export default function MedicineDetailScreen() {
       return;
     }
     router.push({
-      pathname: "/reservation/details-notes",
+      pathname: "/reservation/create-request",
       params: {
         medicineId: medicine.id,
-        quantity: String(qty),
+        initialQuantity: String(qty),
       },
     } as never);
   };
