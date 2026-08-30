@@ -6,21 +6,24 @@ import { Ionicons } from "@expo/vector-icons";
 import { useApp } from "@/context/AppContext";
 
 export default function MockPaystackScreen() {
-  const router = useRouter();
-  const { reservationId, fulfillmentMethod } = useLocalSearchParams<{ reservationId?: string; fulfillmentMethod?: "Pickup" | "Delivery" }>();
+  const { reservationId, fulfillmentMethod, address } = useLocalSearchParams<{
+    reservationId?: string;
+    fulfillmentMethod?: "Pickup" | "Delivery";
+    address?: string;
+  }>();
   const { updateFulfillmentAndPayment } = useApp();
 
   useEffect(() => {
     // Simulate a payment process taking 3 seconds
-    const timer = setTimeout(() => {
+    const timer = setTimeout(async () => {
       if (reservationId && fulfillmentMethod) {
-        updateFulfillmentAndPayment(reservationId, fulfillmentMethod, "Pay Online");
+        await updateFulfillmentAndPayment(reservationId, fulfillmentMethod, "Pay Online", address);
         router.push("/(tabs)/reservations" as never);
       }
-    }, 3000);
+    }, 2500);
 
     return () => clearTimeout(timer);
-  }, [reservationId, fulfillmentMethod]);
+  }, [reservationId, fulfillmentMethod, address]);
 
   return (
     <SafeAreaView className="flex-1 bg-white items-center justify-center px-6">

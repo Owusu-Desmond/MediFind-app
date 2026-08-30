@@ -5,6 +5,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  Image,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -18,8 +19,10 @@ export default function MedicineDetailScreen() {
   const [qty, setQty] = useState(1);
   const [reserved, setReserved] = useState(false);
 
-  const medicine = medicines.find((m) => m.id === id);
-  const pharmacy = pharmacies.find((p) => p.id === medicine?.pharmacyId);
+  const medicine = medicines.find(
+    (m) => m.id === id || (m.rawMedicineId !== undefined && String(m.rawMedicineId) === id) || m.id.startsWith(`${id}-`)
+  );
+  const pharmacy = pharmacies.find((p) => p.id === medicine?.pharmacyId || p.name === medicine?.pharmacy);
 
   if (!medicine) {
     return (
@@ -59,12 +62,16 @@ export default function MedicineDetailScreen() {
           </TouchableOpacity>
 
           <View className="flex-row items-start gap-4">
-            <View className="w-16 h-16 rounded-2xl bg-white/20 items-center justify-center">
-              <Ionicons name="medkit" size={30} color="white" />
-            </View>
+            {medicine.imageUrl ? (
+              <Image source={{ uri: medicine.imageUrl }} className="w-16 h-16 rounded-2xl bg-white/20" resizeMode="cover" />
+            ) : (
+              <View className="w-16 h-16 rounded-2xl bg-white/20 items-center justify-center">
+                <Ionicons name="medkit" size={30} color="white" />
+              </View>
+            )}
             <View className="flex-1">
               <Text className="text-white text-xl font-bold leading-tight">{medicine.name}</Text>
-              <Text className="text-white/60 text-xs font-semibold mt-1">{medicine.genericName}</Text>
+              <Text className="text-white/60 text-xs font-semibold mt-1">{medicine.dosage || medicine.genericName}</Text>
               <View className="flex-row items-center gap-2 mt-2">
                 <View className="bg-white/15 px-2.5 py-1 rounded-full">
                   <Text className="text-white text-[10px] font-bold">{medicine.category}</Text>
@@ -78,6 +85,7 @@ export default function MedicineDetailScreen() {
             </View>
           </View>
         </View>
+
 
         {/* Price + Rating */}
         <View className="mx-6 -mt-5 bg-white rounded-3xl p-5 border border-slate-100 shadow-sm flex-row items-center justify-between">
@@ -134,32 +142,81 @@ export default function MedicineDetailScreen() {
           </View>
         )}
 
-        {/* Drug Info */}
-        <View className="mx-6 mt-5">
-          <Text className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 px-1">
-            Drug Information
-          </Text>
-          <View className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm gap-4">
-            {[
-              { label: "Brand Name", value: medicine.name, icon: "medical-outline" },
-              { label: "Generic Name", value: medicine.genericName, icon: "flask-outline" },
-              { label: "Category", value: medicine.category, icon: "pricetag-outline" },
-              { label: "Dosage Form", value: "Tablet / Capsule", icon: "tablet-portrait-outline" },
-              { label: "Storage", value: "Store below 30°C, dry place", icon: "thermometer-outline" },
-            ].map((item) => (
-              <View key={item.label} className="flex-row items-center gap-3">
-                <View className="w-9 h-9 rounded-xl bg-slate-50 items-center justify-center">
-                  <Ionicons name={item.icon as any} size={16} color="#64748b" />
+        {/* Helper function to split text by lines or bullets */}
+        {(() => {
+          const parseListItems = (text?: string): string[] => {
+            if (!text) return [];
+            return text
+              .split(/\n|•|\\n/)
+              .map((item) => item.replace(/^[-*•]\s*/, "").trim())
+              .filter(Boolean);
+          };
+
+          const descriptionText = medicine.description || "Effective for relief of mild to moderate pain including headache, migraine, neuralgia, toothache, sore throat, period pain, and relief of symptoms of flu and fever.";
+          const dosageItems = parseListItems(medicine.dosageInstructions || medicine.dosage || "Adults & Children > 12y:\n1-2 tablets every 4-6 hours as required. Do not exceed 8 tablets in 24 hours.");
+
+          const precautionsItems = parseListItems(medicine.precautions || "Avoid alcohol consumption while taking this medication.\nDo not take with other paracetamol-containing products.");
+          const sideEffectsItems = parseListItems(medicine.sideEffects || "Common side effects are rare but may include allergic reactions (skin rash, swelling), or blood disorders. Consult a doctor if you experience any unusual symptoms.");
+
+          return (
+            <View className="mx-6 mt-5 gap-5">
+              {/* Description */}
+              <View className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm gap-2">
+                <View className="flex-row items-center gap-2 mb-1">
+                  <Ionicons name="information-circle-outline" size={18} color="#0f766e" />
+                  <Text className="text-base font-bold text-slate-800">Description</Text>
                 </View>
-                <View className="flex-1">
-                  <Text className="text-[10px] font-bold text-slate-400 uppercase">{item.label}</Text>
-                  <Text className="text-sm font-semibold text-slate-700">{item.value}</Text>
-                </View>
+                <Text className="text-xs text-slate-600 leading-relaxed">
+                  {descriptionText}
+                </Text>
               </View>
-            ))}
-          </View>
-        </View>
+
+              {/* Dosage */}
+              <View className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm gap-3">
+                <View className="flex-row items-center gap-2 mb-1">
+                  <Ionicons name="fitness-outline" size={18} color="#0f766e" />
+                  <Text className="text-base font-bold text-slate-800">Dosage</Text>
+                </View>
+                {dosageItems.map((item, idx) => (
+                  <View key={idx} className="flex-row items-start gap-2.5">
+                    <View className="w-1.5 h-1.5 rounded-full bg-teal-600 mt-1.5" />
+                    <Text className="flex-1 text-xs font-bold text-slate-800 leading-normal">{item}</Text>
+                  </View>
+                ))}
+              </View>
+
+              {/* Precautions */}
+              <View className="bg-red-50/50 rounded-3xl p-5 border border-red-100 shadow-sm gap-3">
+                <View className="flex-row items-center gap-2 mb-1">
+                  <Ionicons name="warning-outline" size={18} color="#dc2626" />
+                  <Text className="text-base font-bold text-red-900">Precautions</Text>
+                </View>
+                {precautionsItems.map((item, idx) => (
+                  <View key={idx} className="flex-row items-start gap-2.5">
+                    <View className="w-1.5 h-1.5 rounded-full bg-red-500 mt-1.5" />
+                    <Text className="flex-1 text-xs font-semibold text-red-950 leading-normal">{item}</Text>
+                  </View>
+                ))}
+              </View>
+
+              {/* Side Effects */}
+              <View className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm gap-3">
+                <View className="flex-row items-center gap-2 mb-1">
+                  <Ionicons name="medkit-outline" size={18} color="#0f766e" />
+                  <Text className="text-base font-bold text-slate-800">Side Effects</Text>
+                </View>
+                {sideEffectsItems.map((item, idx) => (
+                  <View key={idx} className="flex-row items-start gap-2.5">
+                    <View className="w-1.5 h-1.5 rounded-full bg-teal-600 mt-1.5" />
+                    <Text className="flex-1 text-xs text-slate-600 leading-normal">{item}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          );
+        })()}
       </ScrollView>
+
 
       {/* Bottom Action Bar */}
       <View className="absolute bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-6 pt-4 pb-8">

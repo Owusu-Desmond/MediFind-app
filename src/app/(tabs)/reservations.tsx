@@ -11,6 +11,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useApp, Reservation } from "@/context/AppContext";
 
+import { RefreshControl } from "react-native";
+
 const STATUS_TABS = ["All", "Pending Pharmacy Review", "Approved", "Paid", "In Progress", "Completed", "Cancelled"] as const;
 
 const reservationGroup = (status: Reservation["status"]) => {
@@ -34,8 +36,15 @@ const reservationGroup = (status: Reservation["status"]) => {
 
 export default function ReservationsScreen() {
   const router = useRouter();
-  const { reservations, cancelReservation, markReservationPaid, advanceReservationStatus, approveReservation } = useApp();
+  const { reservations, cancelReservation, markReservationPaid, advanceReservationStatus, approveReservation, refreshReservations, loading } = useApp();
   const [activeTab, setActiveTab] = useState<string>("All");
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refreshReservations();
+    setRefreshing(false);
+  };
 
   const filtered = activeTab === "All"
     ? reservations
@@ -140,6 +149,9 @@ export default function ReservationsScreen() {
         showsVerticalScrollIndicator={false}
         className="flex-1 px-6"
         contentContainerStyle={{ paddingTop: 8, paddingBottom: 24 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0f766e" colors={["#0f766e"]} />
+        }
       >
         {filtered.length === 0 ? (
           <View className="items-center py-20">
@@ -209,128 +221,96 @@ export default function ReservationsScreen() {
 
                 {/* Actions */}
                 {res.status === "Pending Pharmacy Review" && (
-                  <View className="flex-row items-center gap-3 mt-4">
-                    <TouchableOpacity
-                      onPress={() => handleCancel(res.id, res.medicineName)}
-                      className="flex-1 flex-row items-center justify-center gap-1.5 border border-red-200 py-3 rounded-2xl"
-                    >
-                      <Ionicons name="close-outline" size={16} color="#dc2626" />
-                      <Text className="text-red-600 text-xs font-bold">Cancel</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => approveReservation(res.id)}
-                      className="flex-1 flex-row items-center justify-center gap-1.5 bg-primary py-3 rounded-2xl"
-                    >
-                      <Ionicons name="checkmark-done-outline" size={16} color="white" />
-                      <Text className="text-white text-xs font-bold">Mock Approve</Text>
-                    </TouchableOpacity>
+                  <View className="mt-4">
+                    <View className="bg-amber-50/80 border border-amber-100/80 rounded-2xl p-3 mb-3 flex-row items-center gap-2">
+                      <Ionicons name="time-outline" size={16} color="#d97706" />
+                      <Text className="text-amber-800 text-[11px] font-semibold flex-1">
+                        Awaiting review & confirmation from {res.pharmacyName}.
+                      </Text>
+                    </View>
+                    <View className="flex-row items-center gap-3">
+                      <TouchableOpacity
+                        onPress={() => handleCancel(res.id, res.medicineName)}
+                        className="flex-1 flex-row items-center justify-center gap-1.5 border border-red-200 py-3 rounded-2xl"
+                      >
+                        <Ionicons name="close-outline" size={16} color="#dc2626" />
+                        <Text className="text-red-600 text-xs font-bold">Cancel</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => router.push({ pathname: "/reservation/status-timeline", params: { reservationId: res.id } } as never)}
+                        className="flex-1 flex-row items-center justify-center gap-1.5 bg-primary py-3 rounded-2xl"
+                      >
+                        <Ionicons name="time-outline" size={16} color="white" />
+                        <Text className="text-white text-xs font-bold">Track Status</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 )}
 
                 {res.status === "Approved" && (
+                  <View className="mt-4">
+                    <View className="bg-emerald-50/80 border border-emerald-100/80 rounded-2xl p-3 mb-3 flex-row items-center gap-2">
+                      <Ionicons name="checkmark-circle-outline" size={16} color="#059669" />
+                      <Text className="text-emerald-800 text-[11px] font-semibold flex-1">
+                        Reservation approved! Please select fulfillment & payment options.
+                      </Text>
+                    </View>
+                    <View className="flex-row items-center gap-3">
+                      <TouchableOpacity
+                        onPress={() => handleCompleteOptions(res)}
+                        className="flex-[1.5] flex-row items-center justify-center gap-1.5 bg-primary py-3 rounded-2xl shadow-sm"
+                      >
+                        <Ionicons name="options-outline" size={16} color="white" />
+                        <Text className="text-white text-xs font-bold">Choose Mode & Pay</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => router.push({ pathname: "/reservation/status-timeline", params: { reservationId: res.id } } as never)}
+                        className="flex-1 flex-row items-center justify-center gap-1.5 border border-slate-200 py-3 rounded-2xl"
+                      >
+                        <Ionicons name="time-outline" size={16} color="#0f766e" />
+                        <Text className="text-primary text-xs font-bold">Track</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+
+                {["Paid", "Preparing", "Out for Delivery", "Ready for Pickup"].includes(res.status) && (
                   <View className="flex-row items-center gap-3 mt-4">
-                    <TouchableOpacity
-                      onPress={() => handleCompleteOptions(res)}
-                      className="flex-[1.5] flex-row items-center justify-center gap-1.5 border border-teal-200 py-3 rounded-2xl bg-teal-50"
-                    >
-                      <Ionicons name="options-outline" size={16} color="#0f766e" />
-                      <Text className="text-primary text-xs font-bold">Complete Options</Text>
-                    </TouchableOpacity>
                     <TouchableOpacity
                       onPress={() => router.push({ pathname: "/reservation/status-timeline", params: { reservationId: res.id } } as never)}
                       className="flex-1 flex-row items-center justify-center gap-1.5 bg-primary py-3 rounded-2xl"
                     >
                       <Ionicons name="time-outline" size={16} color="white" />
-                      <Text className="text-white text-xs font-bold">Track</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-
-                {res.status === "Paid" && (
-                  <View className="flex-row items-center gap-3 mt-4">
-                    <TouchableOpacity
-                      onPress={() => handleAdvance(res)}
-                      className="flex-1 flex-row items-center justify-center gap-1.5 bg-primary py-3 rounded-2xl"
-                    >
-                      <Ionicons name="play-outline" size={16} color="white" />
-                      <Text className="text-white text-xs font-bold">
-                        {res.fulfillmentMethod === "Delivery" ? "Start Delivery" : "Ready for Pickup"}
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => router.push({ pathname: "/reservation/status-timeline", params: { reservationId: res.id } } as never)}
-                      className="flex-1 flex-row items-center justify-center gap-1.5 border border-slate-200 py-3 rounded-2xl"
-                    >
-                      <Ionicons name="time-outline" size={16} color="#0f766e" />
-                      <Text className="text-primary text-xs font-bold">Track</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-
-                {res.status === "Preparing" && (
-                  <View className="flex-row items-center gap-3 mt-4">
-                    <TouchableOpacity
-                      onPress={() => handleAdvance(res)}
-                      className="flex-1 flex-row items-center justify-center gap-1.5 bg-primary py-3 rounded-2xl"
-                    >
-                      <Ionicons name="bicycle-outline" size={16} color="white" />
-                      <Text className="text-white text-xs font-bold">Out for Delivery</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => router.push({ pathname: "/reservation/status-timeline", params: { reservationId: res.id } } as never)}
-                      className="flex-1 flex-row items-center justify-center gap-1.5 border border-slate-200 py-3 rounded-2xl"
-                    >
-                      <Ionicons name="time-outline" size={16} color="#0f766e" />
-                      <Text className="text-primary text-xs font-bold">Track</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-
-                {res.status === "Out for Delivery" && (
-                  <View className="flex-row items-center gap-3 mt-4">
-                    <TouchableOpacity
-                      onPress={() => handleAdvance(res)}
-                      className="flex-1 flex-row items-center justify-center gap-1.5 bg-primary py-3 rounded-2xl"
-                    >
-                      <Ionicons name="checkmark-outline" size={16} color="white" />
-                      <Text className="text-white text-xs font-bold">Mark Delivered</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => router.push({ pathname: "/reservation/status-timeline", params: { reservationId: res.id } } as never)}
-                      className="flex-1 flex-row items-center justify-center gap-1.5 border border-slate-200 py-3 rounded-2xl"
-                    >
-                      <Ionicons name="time-outline" size={16} color="#0f766e" />
-                      <Text className="text-primary text-xs font-bold">Track</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-
-                {res.status === "Ready for Pickup" && (
-                  <View className="flex-row items-center gap-3 mt-4">
-                    <TouchableOpacity
-                      onPress={() => handleAdvance(res)}
-                      className="flex-1 flex-row items-center justify-center gap-1.5 bg-primary py-3 rounded-2xl"
-                    >
-                      <Ionicons name="bag-check-outline" size={16} color="white" />
-                      <Text className="text-white text-xs font-bold">Mark Collected</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => router.push({ pathname: "/reservation/status-timeline", params: { reservationId: res.id } } as never)}
-                      className="flex-1 flex-row items-center justify-center gap-1.5 border border-slate-200 py-3 rounded-2xl"
-                    >
-                      <Ionicons name="time-outline" size={16} color="#0f766e" />
-                      <Text className="text-primary text-xs font-bold">Track</Text>
+                      <Text className="text-white text-xs font-bold">Track Status Timeline</Text>
                     </TouchableOpacity>
                   </View>
                 )}
 
                 {(res.status === "Delivered" || res.status === "Collected") && (
-                  <View className="bg-emerald-50 border border-emerald-100 rounded-2xl p-3 mt-4 flex-row items-center gap-2">
-                    <Ionicons name="checkmark-circle" size={18} color="#059669" />
-                    <Text className="text-emerald-700 text-xs font-bold flex-1">
-                      {res.status === "Delivered"
-                        ? "Your delivery has been completed."
-                        : "Your medicine has been collected."}
+                  <View className="mt-4">
+                    <View className="bg-emerald-50 border border-emerald-100 rounded-2xl p-3 flex-row items-center gap-2">
+                      <Ionicons name="checkmark-circle" size={18} color="#059669" />
+                      <Text className="text-emerald-700 text-xs font-bold flex-1">
+                        {res.status === "Delivered"
+                          ? "Your delivery has been completed."
+                          : "Your medicine has been collected."}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => router.push({ pathname: "/reservation/status-timeline", params: { reservationId: res.id } } as never)}
+                      className="mt-3 flex-row items-center justify-center gap-1.5 border border-slate-200 py-3 rounded-2xl"
+                    >
+                      <Ionicons name="receipt-outline" size={16} color="#0f766e" />
+                      <Text className="text-primary text-xs font-bold">View Status Timeline</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {res.status === "Cancelled" && (
+                  <View className="bg-red-50 border border-red-100 rounded-2xl p-3 mt-4 flex-row items-center gap-2">
+                    <Ionicons name="close-circle" size={18} color="#dc2626" />
+                    <Text className="text-red-700 text-xs font-bold flex-1">
+                      This reservation was cancelled.
                     </Text>
                   </View>
                 )}

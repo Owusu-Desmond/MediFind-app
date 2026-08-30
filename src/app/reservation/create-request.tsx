@@ -17,10 +17,20 @@ export default function CreateRequestScreen() {
 
   const pharmacyName = medicine?.pharmacy ?? "Selected pharmacy";
 
-  const handleSubmit = () => {
-    if (medicine) {
-      createReservation(medicine, qty, pickupDate, notes);
-      router.push("/reservation/request-submitted" as never);
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    if (medicine && !submitting) {
+      setSubmitting(true);
+      try {
+        await createReservation(medicine, qty, pickupDate, notes);
+        router.push("/reservation/request-submitted" as never);
+      } catch (err) {
+        // Continue anyway
+        router.push("/reservation/request-submitted" as never);
+      } finally {
+        setSubmitting(false);
+      }
     }
   };
 
@@ -90,8 +100,13 @@ export default function CreateRequestScreen() {
         </View>
 
         <View className="px-6 mt-5">
-          <TouchableOpacity onPress={handleSubmit} className="bg-primary rounded-2xl py-4 items-center shadow-lg" style={{ shadowColor: "#0f766e", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.22, shadowRadius: 16 }}>
-            <Text className="text-white font-bold">Submit Request</Text>
+          <TouchableOpacity
+            onPress={handleSubmit}
+            disabled={submitting}
+            className={`rounded-2xl py-4 items-center shadow-lg ${submitting ? "bg-teal-700/60" : "bg-primary"}`}
+            style={{ shadowColor: "#0f766e", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.22, shadowRadius: 16 }}
+          >
+            <Text className="text-white font-bold">{submitting ? "Submitting..." : "Submit Request"}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

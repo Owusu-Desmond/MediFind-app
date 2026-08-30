@@ -16,8 +16,12 @@ export default function PharmacyDetailScreen() {
   const { pharmacies, medicines, savedPharmacies, toggleSavePharmacy } = useApp();
   const router = useRouter();
 
-  const pharmacy = pharmacies.find((p) => p.id === id);
-  const pharmacyMeds = medicines.filter((m) => m.pharmacyId === id);
+  const pharmacy = pharmacies.find(
+    (p) => p.id === id || p.name.toLowerCase() === decodeURIComponent(id || "").toLowerCase()
+  );
+  const pharmacyMeds = medicines.filter(
+    (m) => m.pharmacyId === id || (pharmacy && m.pharmacy === pharmacy.name)
+  );
   const isSaved = savedPharmacies.includes(id);
 
   if (!pharmacy) {

@@ -18,23 +18,26 @@ export default function LoginScreen() {
   const { login } = useApp();
   const router = useRouter();
   const [email, setEmail] = useState("kwame.mensah@gmail.com");
-  const [password, setPassword] = useState("patient123");
+  const [password, setPassword] = useState("patient1234");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     setError("");
     if (!email || !password) {
       setError("Please enter your email and password.");
       return;
     }
     setLoading(true);
-    setTimeout(() => {
-      login(email, password);
-      setLoading(false);
+    try {
+      await login(email.trim(), password);
       router.replace("/(tabs)/home");
-    }, 1200);
+    } catch (err: any) {
+      setError(err?.message || "Invalid email or password");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

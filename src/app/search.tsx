@@ -13,9 +13,16 @@ export default function SearchScreen() {
   const [selectedCategory, setSelectedCategory] = useState("All");
 
   const filtered = medicines.filter((m) => {
-    const query = searchQuery.toLowerCase();
-    const matchesSearch = m.name.toLowerCase().includes(query) || m.genericName.toLowerCase().includes(query);
-    const matchesCategory = selectedCategory === "All" || m.category === selectedCategory;
+    const query = searchQuery.toLowerCase().trim();
+    const matchesSearch =
+      !query ||
+      m.name.toLowerCase().includes(query) ||
+      (m.genericName && m.genericName.toLowerCase().includes(query)) ||
+      (m.description && m.description.toLowerCase().includes(query)) ||
+      (m.pharmacy && m.pharmacy.toLowerCase().includes(query));
+    const matchesCategory =
+      selectedCategory === "All" ||
+      (m.category && m.category.toLowerCase() === selectedCategory.toLowerCase());
     return matchesSearch && matchesCategory;
   });
 

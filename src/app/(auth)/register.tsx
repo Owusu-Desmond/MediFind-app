@@ -26,7 +26,7 @@ export default function RegisterScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
 
-  const handleRegister = () => {
+  const handleRegister = async () => {
     setError("");
     if (!name || !email || !phone || !password) {
       setError("All fields are required.");
@@ -37,11 +37,14 @@ export default function RegisterScreen() {
       return;
     }
     setLoading(true);
-    setTimeout(() => {
-      register(name, email, password, phone);
-      setLoading(false);
+    try {
+      await register(name.trim(), email.trim(), password, phone.trim());
       router.replace("/(tabs)/home");
-    }, 1200);
+    } catch (err: any) {
+      setError(err?.message || "Registration failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

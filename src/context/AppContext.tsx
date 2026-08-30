@@ -1,8 +1,10 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { api, getStoredToken, BackendReservation, BackendMedicine, BackendPharmacy, BackendUser } from "@/services/api";
 
 export interface Medicine {
   id: string;
+  rawMedicineId?: number;
   name: string;
   genericName: string;
   category: string;
@@ -13,6 +15,13 @@ export interface Medicine {
   distance: string;
   rating: number;
   reviews: number;
+  description?: string;
+  dosage?: string;
+  dosageInstructions?: string;
+  precautions?: string;
+  sideEffects?: string;
+  tags?: string;
+  imageUrl?: string;
 }
 
 export interface Pharmacy {
@@ -26,15 +35,20 @@ export interface Pharmacy {
   openHours: string;
   phone: string;
   verified: boolean;
+  lat?: number;
+  lng?: number;
 }
 
 export interface Reservation {
   id: string;
+  rawId?: number;
   medicineId: string;
   medicineName: string;
   pharmacyName: string;
   pharmacyId: string;
   fulfillmentMethod?: "Pickup" | "Delivery";
+  fulfillmentAddress?: string;
+  fulfillmentTime?: string;
   paymentMethod?: string;
   status:
     | "Pending Pharmacy Review"
@@ -51,6 +65,7 @@ export interface Reservation {
   notes?: string;
   refNumber: string;
   quantity: number;
+  totalPrice?: number;
 }
 
 export interface User {
@@ -66,361 +81,454 @@ interface AppContextType {
   medicines: Medicine[];
   pharmacies: Pharmacy[];
   reservations: Reservation[];
+  loading: boolean;
   searchQuery: string;
   setSearchQuery: (q: string) => void;
-  login: (email: string, password: string) => boolean;
-  logout: () => void;
-  register: (name: string, email: string, password: string, phone: string) => void;
-  createReservation: (medicine: Medicine, qty: number, pickupDate: string, notes: string) => void;
-  approveReservation: (id: string) => void;
-  updateFulfillmentAndPayment: (id: string, fulfillmentMethod: "Pickup" | "Delivery", paymentMethod: string) => void;
-  markReservationPaid: (id: string) => void;
-  advanceReservationStatus: (id: string) => void;
-  cancelReservation: (id: string) => void;
+  login: (email: string, password: string) => Promise<boolean>;
+  logout: () => Promise<void>;
+  register: (name: string, email: string, password: string, phone: string, location?: string) => Promise<boolean>;
+  createReservation: (medicine: Medicine, qty: number, pickupDate: string, notes: string) => Promise<Reservation | null>;
+  approveReservation: (id: string) => Promise<void>;
+  updateFulfillmentAndPayment: (id: string, fulfillmentMethod: "Pickup" | "Delivery", paymentMethod: string, address?: string) => Promise<void>;
+  markReservationPaid: (id: string) => Promise<void>;
+  advanceReservationStatus: (id: string) => Promise<void>;
+  cancelReservation: (id: string) => Promise<void>;
+  refreshReservations: () => Promise<void>;
+  refreshData: () => Promise<void>;
   savedPharmacies: string[];
   toggleSavePharmacy: (id: string) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-const sampleMedicines: Medicine[] = [
-  {
-    id: "med-1",
-    name: "Paracetamol 500mg",
-    genericName: "Acetaminophen",
-    category: "Analgesic",
-    inStock: true,
-    price: 5.50,
-    pharmacy: "Ghana National Pharmacy",
-    pharmacyId: "phr-1",
-    distance: "0.3 km",
-    rating: 4.8,
-    reviews: 124,
-  },
-  {
-    id: "med-2",
-    name: "Amoxicillin 500mg",
-    genericName: "Amoxicillin",
-    category: "Antibiotic",
-    inStock: true,
-    price: 18.00,
-    pharmacy: "East Legon Pharmacy",
-    pharmacyId: "phr-2",
-    distance: "1.2 km",
-    rating: 4.6,
-    reviews: 78,
-  },
-  {
-    id: "med-3",
-    name: "Metformin 850mg",
-    genericName: "Metformin HCl",
-    category: "Antidiabetic",
-    inStock: true,
-    price: 22.00,
-    pharmacy: "Accra Mall Pharmacy",
-    pharmacyId: "phr-3",
-    distance: "2.1 km",
-    rating: 4.7,
-    reviews: 203,
-  },
-  {
-    id: "med-4",
-    name: "Lisinopril 10mg",
-    genericName: "Lisinopril",
-    category: "Antihypertensive",
-    inStock: false,
-    price: 30.00,
-    pharmacy: "Tema Dispensary",
-    pharmacyId: "phr-4",
-    distance: "4.5 km",
-    rating: 4.2,
-    reviews: 45,
-  },
-  {
-    id: "med-5",
-    name: "Artemether/Lumefantrine 80/480mg",
-    genericName: "Coartem",
-    category: "Antimalarial",
-    inStock: true,
-    price: 45.00,
-    pharmacy: "Ghana National Pharmacy",
-    pharmacyId: "phr-1",
-    distance: "0.3 km",
-    rating: 4.9,
-    reviews: 312,
-  },
-  {
-    id: "med-6",
-    name: "Atorvastatin 20mg",
-    genericName: "Atorvastatin Calcium",
-    category: "Statin",
-    inStock: true,
-    price: 35.00,
-    pharmacy: "East Legon Pharmacy",
-    pharmacyId: "phr-2",
-    distance: "1.2 km",
-    rating: 4.5,
-    reviews: 89,
-  },
-];
-
-const samplePharmacies: Pharmacy[] = [
-  {
-    id: "phr-1",
-    name: "Ghana National Pharmacy",
-    address: "Ring Road Central, Accra",
-    distance: "0.3 km",
-    rating: 4.8,
-    reviews: 512,
-    isOpen: true,
-    openHours: "Mon–Sat: 7am – 9pm",
-    phone: "+233 30 223 4455",
-    verified: true,
-  },
-  {
-    id: "phr-2",
-    name: "East Legon Pharmacy Ltd",
-    address: "14 Boundary Road, East Legon",
-    distance: "1.2 km",
-    rating: 4.6,
-    reviews: 284,
-    isOpen: true,
-    openHours: "Mon–Sun: 8am – 10pm",
-    phone: "+233 24 123 4567",
-    verified: true,
-  },
-  {
-    id: "phr-3",
-    name: "Accra Mall Pharmacy",
-    address: "Tetteh Quarshie, Spintex Rd, Accra",
-    distance: "2.1 km",
-    rating: 4.7,
-    reviews: 392,
-    isOpen: true,
-    openHours: "Mon–Sun: 9am – 9pm",
-    phone: "+233 20 882 1200",
-    verified: true,
-  },
-  {
-    id: "phr-4",
-    name: "Tema Community 1 Dispensary",
-    address: "Community 1 Market Area, Tema",
-    distance: "4.5 km",
-    rating: 4.2,
-    reviews: 120,
-    isOpen: false,
-    openHours: "Mon–Fri: 8am – 5pm",
-    phone: "+233 30 320 4481",
-    verified: false,
-  },
-];
-
-const sampleReservations: Reservation[] = [
-  {
-    id: "res-demo-approved-1",
-    medicineId: "med-5",
-    medicineName: "Artemether/Lumefantrine 80/480mg",
-    pharmacyName: "Ghana National Pharmacy",
-    pharmacyId: "phr-1",
-    status: "Approved",
-    date: new Date().toISOString().split("T")[0],
-    refNumber: "MF-DEMO1",
-    quantity: 2,
-  },
-];
-
-const ensureDemoReservation = (reservations: Reservation[]) => {
-  if (reservations.some((reservation) => reservation.id === "res-demo-approved-1")) {
-    return reservations;
+const mapStatus = (status: string | undefined): Reservation["status"] => {
+  switch (status) {
+    case "Pending":
+    case "Pending Approval":
+    case "Pending Pharmacy Review":
+      return "Pending Pharmacy Review";
+    case "Approved":
+    case "Confirmed":
+      return "Approved";
+    case "Paid":
+      return "Paid";
+    case "Ready":
+    case "Ready for Pickup":
+      return "Ready for Pickup";
+    case "Preparing":
+      return "Preparing";
+    case "Out for Delivery":
+      return "Out for Delivery";
+    case "Delivered":
+      return "Delivered";
+    case "Picked Up":
+    case "Collected":
+    case "Completed":
+      return "Collected";
+    case "Cancelled":
+    case "Rejected":
+      return "Cancelled";
+    default:
+      return "Pending Pharmacy Review";
   }
-
-  return [sampleReservations[0], ...reservations];
 };
 
-const normalizeReservation = (reservation: any): Reservation => {
-  const mapStatus = (status: string | undefined): Reservation["status"] => {
-    switch (status) {
-      case "Pending":
-      case "Pending Approval":
-        return "Pending Pharmacy Review";
-      case "Ready":
-        return "Ready for Pickup";
-      case "Collected":
-        return "Collected";
-      case "Cancelled":
-        return "Cancelled";
-      case "Approved":
-      case "Paid":
-      case "Preparing":
-      case "Out for Delivery":
-      case "Delivered":
-      case "Ready for Pickup":
-      case "Pending Pharmacy Review":
-        return status;
-      default:
-        return "Pending Pharmacy Review";
-    }
-  };
+const transformBackendReservation = (
+  br: BackendReservation,
+  pharmaciesList: Pharmacy[] = []
+): Reservation => {
+  const pharmacyMatch = pharmaciesList.find((p) => p.id === String(br.pharmacy_id));
+  const pharmacyName = br.pharmacy?.name || pharmacyMatch?.name || "Selected Pharmacy";
+
+  const firstItem = br.items && br.items.length > 0 ? br.items[0] : null;
+  const medicineName = firstItem?.medicine?.name || "Medicine Order";
+  const medicineId = firstItem ? String(firstItem.medicine_id) : "1";
+  const quantity = firstItem ? firstItem.quantity : 1;
 
   return {
-    id: reservation.id,
-    medicineId: reservation.medicineId,
-    medicineName: reservation.medicineName,
-    pharmacyName: reservation.pharmacyName,
-    pharmacyId: reservation.pharmacyId,
-    fulfillmentMethod: reservation.fulfillmentMethod,
-    paymentMethod: reservation.paymentMethod,
-    status: mapStatus(reservation.status),
-    date: reservation.date,
-    pickupDate: reservation.pickupDate,
-    notes: reservation.notes,
-    refNumber: reservation.refNumber,
-    quantity: reservation.quantity ?? 1,
+    id: String(br.id),
+    rawId: br.id,
+    medicineId,
+    medicineName,
+    pharmacyName,
+    pharmacyId: String(br.pharmacy_id),
+    fulfillmentMethod: (br.fulfillment_method === "Delivery" ? "Delivery" : "Pickup") as "Pickup" | "Delivery",
+    fulfillmentAddress: br.fulfillment_address,
+    fulfillmentTime: br.fulfillment_time,
+    paymentMethod: br.payment_preference,
+    status: mapStatus(br.status),
+    date: br.date ? new Date(br.date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
+    pickupDate: br.fulfillment_time,
+    notes: br.notes,
+    refNumber: br.ref_number || `MF-${br.id}`,
+    quantity,
+    totalPrice: br.total_price,
   };
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [medicines] = useState<Medicine[]>(sampleMedicines);
-  const [pharmacies] = useState<Pharmacy[]>(samplePharmacies);
-  const [reservations, setReservations] = useState<Reservation[]>(sampleReservations);
+  const [medicines, setMedicines] = useState<Medicine[]>([]);
+  const [pharmacies, setPharmacies] = useState<Pharmacy[]>([]);
+  const [reservations, setReservations] = useState<Reservation[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [savedPharmacies, setSavedPharmacies] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
 
+  // Load cached user and local preferences on mount
   useEffect(() => {
-    const load = async () => {
-      const storedReservations = await AsyncStorage.getItem("mf_reservations");
-      const storedSaved = await AsyncStorage.getItem("mf_saved_pharmacies");
+    const initApp = async () => {
+      try {
+        const storedUser = await AsyncStorage.getItem("mf_user_data");
+        const storedSaved = await AsyncStorage.getItem("mf_saved_pharmacies");
 
-      if (storedReservations) {
-        try {
-          const parsedReservations = JSON.parse(storedReservations);
-          const normalizedReservations = Array.isArray(parsedReservations)
-            ? parsedReservations.map(normalizeReservation)
-            : sampleReservations;
-          setReservations(ensureDemoReservation(normalizedReservations));
-        } catch {
-          setReservations(sampleReservations);
+        if (storedUser) {
+          try {
+            setUser(JSON.parse(storedUser));
+          } catch {}
         }
-      } else {
-        setReservations(sampleReservations);
-      }
 
-      if (storedSaved) setSavedPharmacies(JSON.parse(storedSaved));
+        if (storedSaved) {
+          try {
+            setSavedPharmacies(JSON.parse(storedSaved));
+          } catch {}
+        }
+      } catch {}
+
+      // Fetch live backend data
+      await refreshData();
     };
-    load();
-  }, []);
 
-  useEffect(() => {
-    AsyncStorage.setItem("mf_reservations", JSON.stringify(reservations));
-  }, [reservations]);
+    initApp();
+  }, []);
 
   useEffect(() => {
     AsyncStorage.setItem("mf_saved_pharmacies", JSON.stringify(savedPharmacies));
   }, [savedPharmacies]);
 
-  const login = (email: string, _password: string): boolean => {
-    const newUser: User = {
-      id: "usr-patient-1",
-      name: email.split("@")[0].replace(/\./g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
-      email,
-      phone: "+233 24 000 0001",
-      location: "East Legon, Accra",
-    };
-    setUser(newUser);
-    AsyncStorage.setItem("mf_user", JSON.stringify(newUser));
-    return true;
+  const refreshData = async () => {
+    try {
+      setLoading(true);
+
+      // 1. Fetch live Pharmacies from backend
+      let loadedPharmacies: Pharmacy[] = [];
+      try {
+        const backendPharmacies = await api.getPharmacies();
+        if (Array.isArray(backendPharmacies) && backendPharmacies.length > 0) {
+          loadedPharmacies = backendPharmacies.map((bp) => ({
+            id: String(bp.id),
+            name: bp.name,
+            address: bp.location,
+            distance: "1.2 km",
+            rating: 4.8,
+            reviews: 24,
+            isOpen: true,
+            openHours: bp.opening_hours || "Mon–Sat: 8am – 9pm",
+            phone: bp.phone || "+233 24 000 0000",
+            verified: bp.verified ?? true,
+            lat: bp.lat,
+            lng: bp.lng,
+          }));
+          setPharmacies(loadedPharmacies);
+        } else {
+          setPharmacies([]);
+        }
+      } catch (err) {
+        setPharmacies([]);
+      }
+
+      // 2. Fetch live Medicines from backend inventory/search
+      try {
+        const searchResults = await api.searchMedicines("");
+        if (Array.isArray(searchResults) && searchResults.length > 0) {
+          const transformedMeds: Medicine[] = searchResults.map((item) => {
+            const med = item.medicine;
+            const pharma = item.pharmacy;
+            const inv = item.inventory;
+            const dist = item.distance_km ? `${item.distance_km.toFixed(1)} km` : "0.5 km";
+
+            return {
+              id: `${med.id}-${pharma.id}`,
+              rawMedicineId: med.id,
+              name: med.name,
+              genericName: med.generic_name || med.name,
+              category: med.category || "General",
+              inStock: (inv?.stock_quantity ?? 0) > 0,
+              price: inv?.price ?? 15.0,
+              pharmacy: pharma.name,
+              pharmacyId: String(pharma.id),
+              distance: dist,
+              rating: 4.8,
+              reviews: 18,
+              description: med.description || "",
+              dosage: med.dosage || "",
+              dosageInstructions: med.dosage_instructions || "",
+              precautions: med.precautions || "",
+              sideEffects: med.side_effects || "",
+              tags: med.tags || "",
+              imageUrl: med.image_url || undefined,
+            };
+          });
+          setMedicines(transformedMeds);
+        } else {
+          // Fallback to medicines catalog if search returned empty
+          const catalogMeds = await api.getMedicines();
+          if (Array.isArray(catalogMeds) && catalogMeds.length > 0) {
+            const firstPharma = loadedPharmacies.length > 0 ? loadedPharmacies[0] : null;
+            const transformedMeds: Medicine[] = catalogMeds.map((med) => ({
+              id: String(med.id),
+              rawMedicineId: med.id,
+              name: med.name,
+              genericName: med.generic_name || med.name,
+              category: med.category || "General",
+              inStock: true,
+              price: 15.0,
+              pharmacy: firstPharma?.name || "Verified Pharmacy",
+              pharmacyId: String(firstPharma?.id || "1"),
+              distance: firstPharma?.distance || "0.8 km",
+              rating: 4.8,
+              reviews: 15,
+              description: med.description || "",
+              dosage: med.dosage || "",
+              dosageInstructions: med.dosage_instructions || "",
+              precautions: med.precautions || "",
+              sideEffects: med.side_effects || "",
+              tags: med.tags || "",
+              imageUrl: med.image_url || undefined,
+            }));
+            setMedicines(transformedMeds);
+          } else {
+            setMedicines([]);
+          }
+        }
+      } catch (err) {
+        setMedicines([]);
+      }
+
+      // 3. Fetch Reservations from backend
+      await refreshReservations(loadedPharmacies);
+    } catch (err) {
+      // ignore
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const logout = () => {
+  const refreshReservations = useCallback(async (currentPharmacies?: Pharmacy[]) => {
+    try {
+      setLoading(true);
+      const token = await getStoredToken();
+      if (!token) {
+        setReservations([]);
+        return;
+      }
+      const activePharmacies = currentPharmacies || pharmacies;
+      const backendReservations = await api.getReservations();
+      if (Array.isArray(backendReservations)) {
+        const transformed = backendReservations.map((br) => transformBackendReservation(br, activePharmacies));
+        setReservations(transformed);
+      } else {
+        setReservations([]);
+      }
+    } catch (err) {
+      setReservations([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [pharmacies]);
+
+  const login = async (email: string, password: string): Promise<boolean> => {
+    try {
+      setLoading(true);
+      const { user: backendUser } = await api.login(email, password);
+      const loggedUser: User = {
+        id: String(backendUser.id),
+        name: backendUser.name,
+        email: backendUser.email,
+        phone: backendUser.phone || "+233 24 000 0001",
+        location: backendUser.location || "Accra, Ghana",
+      };
+      setUser(loggedUser);
+      await AsyncStorage.setItem("mf_user_data", JSON.stringify(loggedUser));
+      await refreshData();
+      return true;
+    } catch (err: any) {
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const logout = async () => {
+    try {
+      await api.logout();
+    } catch {}
     setUser(null);
-    AsyncStorage.removeItem("mf_user");
+    setReservations([]);
+    await AsyncStorage.removeItem("mf_user_data");
+    await AsyncStorage.removeItem("mf_access_token");
+    await AsyncStorage.removeItem("mf_reservations");
   };
 
-  const register = (name: string, email: string, _password: string, phone: string) => {
-    const newUser: User = {
-      id: `usr-${Date.now()}`,
-      name,
-      email,
-      phone,
-      location: "Accra, Ghana",
-    };
-    setUser(newUser);
-    AsyncStorage.setItem("mf_user", JSON.stringify(newUser));
+  const register = async (name: string, email: string, password: string, phone: string, location?: string): Promise<boolean> => {
+    try {
+      setLoading(true);
+      const { user: backendUser } = await api.register({
+        name,
+        email,
+        password,
+        phone,
+        location: location || "Accra, Ghana",
+      });
+      const registeredUser: User = {
+        id: String(backendUser.id),
+        name: backendUser.name,
+        email: backendUser.email,
+        phone: backendUser.phone || phone,
+        location: backendUser.location || location || "Accra, Ghana",
+      };
+      setUser(registeredUser);
+      await AsyncStorage.setItem("mf_user_data", JSON.stringify(registeredUser));
+      await refreshData();
+      return true;
+    } catch (err) {
+      throw err;
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const createReservation = (medicine: Medicine, qty: number, pickupDate: string, notes: string) => {
-    const newRes: Reservation = {
-      id: `res-${Date.now()}`,
-      medicineId: medicine.id,
-      medicineName: medicine.name,
-      pharmacyName: medicine.pharmacy,
-      pharmacyId: medicine.pharmacyId,
-      status: "Pending Pharmacy Review",
-      date: new Date().toISOString().split("T")[0],
-      pickupDate,
-      notes,
-      refNumber: `MF-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
-      quantity: qty,
-    };
-    setReservations((prev) => [newRes, ...prev]);
+  const createReservation = async (
+    medicine: Medicine,
+    qty: number,
+    pickupDate: string,
+    notes: string
+  ): Promise<Reservation | null> => {
+    try {
+      const pharmacyIdNum = parseInt(medicine.pharmacyId.replace(/\D/g, "") || "1", 10) || 1;
+      const rawMedId = medicine.rawMedicineId || parseInt(medicine.id.split("-")[0].replace(/\D/g, "") || "1", 10) || 1;
+
+      const created = await api.createReservation({
+        pharmacy_id: pharmacyIdNum,
+        items: [{ medicine_id: rawMedId, quantity: qty }],
+        fulfillment_time: pickupDate,
+        notes: notes || undefined,
+        fulfillment_method: "Pickup",
+      });
+
+      const transformed = transformBackendReservation(created, pharmacies);
+      setReservations((prev) => [transformed, ...prev.filter((r) => r.id !== transformed.id)]);
+      return transformed;
+    } catch (err) {
+      console.error("Failed to create reservation:", err);
+      throw err;
+    }
   };
 
-  const approveReservation = (id: string) => {
+  const approveReservation = async (id: string) => {
+    try {
+      const numericId = parseInt(id.replace(/\D/g, ""), 10);
+      if (!isNaN(numericId)) {
+        await api.updateReservationStatus(numericId, "Approved");
+      }
+    } catch {}
+
     setReservations((prev) =>
-      prev.map((reservation) =>
-        reservation.id === id
-          ? { ...reservation, status: "Approved" }
-          : reservation
-      )
+      prev.map((res) => (res.id === id ? { ...res, status: "Approved" } : res))
     );
   };
 
-  const updateFulfillmentAndPayment = (id: string, fulfillmentMethod: "Pickup" | "Delivery", paymentMethod: string) => {
-    setReservations((prev) =>
-      prev.map((reservation) =>
-        reservation.id === id
-          ? { ...reservation, fulfillmentMethod, paymentMethod, status: paymentMethod === "Pay Online" ? "Paid" : (fulfillmentMethod === "Pickup" ? "Ready for Pickup" : "Preparing") }
-          : reservation
-      )
-    );
-  };
+  const updateFulfillmentAndPayment = async (
+    id: string,
+    fulfillmentMethod: "Pickup" | "Delivery",
+    paymentMethod: string,
+    address?: string
+  ) => {
+    try {
+      const numericId = parseInt(id.replace(/\D/g, ""), 10);
+      if (!isNaN(numericId)) {
+        await api.updateReservationFulfillment(numericId, fulfillmentMethod, paymentMethod, address);
+      }
+    } catch {}
 
-  const markReservationPaid = (id: string) => {
-    setReservations((prev) =>
-      prev.map((reservation) =>
-        reservation.id === id
-          ? { ...reservation, status: "Paid" }
-          : reservation
-      )
-    );
-  };
-
-  const advanceReservationStatus = (id: string) => {
     setReservations((prev) =>
       prev.map((reservation) => {
-        if (reservation.id !== id) return reservation;
+        if (reservation.id === id) {
+          const nextStatus: Reservation["status"] =
+            paymentMethod === "Pay Online"
+              ? "Paid"
+              : fulfillmentMethod === "Pickup"
+              ? "Ready for Pickup"
+              : "Preparing";
 
-        switch (reservation.status) {
-          case "Paid":
-            return {
-              ...reservation,
-              status: reservation.fulfillmentMethod === "Delivery" ? "Preparing" : "Ready for Pickup",
-            };
-          case "Preparing":
-            return { ...reservation, status: "Out for Delivery" };
-          case "Out for Delivery":
-            return { ...reservation, status: "Delivered" };
-          case "Ready for Pickup":
-            return { ...reservation, status: "Collected" };
-          default:
-            return reservation;
+          return {
+            ...reservation,
+            fulfillmentMethod,
+            paymentMethod,
+            fulfillmentAddress: address || reservation.fulfillmentAddress,
+            status: nextStatus,
+          };
         }
+        return reservation;
       })
     );
   };
 
-  const cancelReservation = (id: string) => {
+  const markReservationPaid = async (id: string) => {
+    try {
+      const numericId = parseInt(id.replace(/\D/g, ""), 10);
+      if (!isNaN(numericId)) {
+        await api.updateReservationStatus(numericId, "Paid");
+      }
+    } catch {}
+
+    setReservations((prev) =>
+      prev.map((res) => (res.id === id ? { ...res, status: "Paid" } : res))
+    );
+  };
+
+  const advanceReservationStatus = async (id: string) => {
+    const target = reservations.find((r) => r.id === id);
+    if (!target) return;
+
+    let nextStatus: Reservation["status"] = target.status;
+    switch (target.status) {
+      case "Paid":
+        nextStatus = target.fulfillmentMethod === "Delivery" ? "Preparing" : "Ready for Pickup";
+        break;
+      case "Preparing":
+        nextStatus = "Out for Delivery";
+        break;
+      case "Out for Delivery":
+        nextStatus = "Delivered";
+        break;
+      case "Ready for Pickup":
+        nextStatus = "Collected";
+        break;
+      default:
+        break;
+    }
+
+    try {
+      const numericId = parseInt(id.replace(/\D/g, ""), 10);
+      if (!isNaN(numericId) && nextStatus !== target.status) {
+        await api.updateReservationStatus(numericId, nextStatus);
+      }
+    } catch {}
+
+    setReservations((prev) =>
+      prev.map((res) => (res.id === id ? { ...res, status: nextStatus } : res))
+    );
+  };
+
+  const cancelReservation = async (id: string) => {
+    try {
+      const numericId = parseInt(id.replace(/\D/g, ""), 10);
+      if (!isNaN(numericId)) {
+        await api.cancelReservation(numericId);
+      }
+    } catch {}
+
     setReservations((prev) =>
       prev.map((r) => (r.id === id ? { ...r, status: "Cancelled" } : r))
     );
@@ -439,6 +547,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         medicines,
         pharmacies,
         reservations,
+        loading,
         searchQuery,
         setSearchQuery,
         login,
@@ -450,6 +559,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         markReservationPaid,
         advanceReservationStatus,
         cancelReservation,
+        refreshReservations,
+        refreshData,
         savedPharmacies,
         toggleSavePharmacy,
       }}

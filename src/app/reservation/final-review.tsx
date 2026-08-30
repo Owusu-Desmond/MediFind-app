@@ -14,10 +14,11 @@ export default function FinalReviewScreen() {
 
   const handleSubmit = () => {
     if (medicine) {
-      createReservation(medicine, selectedQuantity);
+      createReservation(medicine, selectedQuantity, "Today, 4:00 PM", "Prescription attached");
     }
     router.push("/reservation/request-submitted" as never);
   };
+
 
   return (
     <SafeAreaView className="flex-1 bg-slate-50" edges={["top"]}>

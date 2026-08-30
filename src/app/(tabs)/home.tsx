@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   FlatList,
+  RefreshControl,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -23,15 +24,28 @@ const CATEGORIES = [
 ];
 
 export default function HomeScreen() {
-  const { user, medicines, searchQuery, setSearchQuery } = useApp();
+  const { user, medicines, searchQuery, setSearchQuery, refreshData } = useApp();
   const router = useRouter();
   const [selectedCategory, setSelectedCategory] = useState("All");
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refreshData();
+    setRefreshing(false);
+  };
 
   const filtered = medicines.filter((m) => {
+    const query = searchQuery.toLowerCase().trim();
     const matchSearch =
-      m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      m.genericName.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchCategory = selectedCategory === "All" || m.category === selectedCategory;
+      !query ||
+      m.name.toLowerCase().includes(query) ||
+      (m.genericName && m.genericName.toLowerCase().includes(query)) ||
+      (m.description && m.description.toLowerCase().includes(query)) ||
+      (m.pharmacy && m.pharmacy.toLowerCase().includes(query));
+    const matchCategory =
+      selectedCategory === "All" ||
+      (m.category && m.category.toLowerCase() === selectedCategory.toLowerCase());
     return matchSearch && matchCategory;
   });
 
@@ -75,7 +89,13 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        className="flex-1"
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0f766e" colors={["#0f766e"]} />
+        }
+      >
         {/* Quick Stats Banner */}
         <View className="mx-6 mt-4 bg-primary rounded-[32px] p-5 flex-row items-center justify-between overflow-hidden">
           <View className="flex-1">

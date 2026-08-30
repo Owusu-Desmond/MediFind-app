@@ -14,18 +14,18 @@ export default function DeliveryDetailsScreen() {
   const [phone, setPhone] = useState(user?.phone ?? "");
   const [instructions, setInstructions] = useState("");
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!reservationId || !fulfillmentMethod || !paymentMethod) return;
 
-    // In a real app we'd save the delivery details.
-    
+    const fullAddress = instructions ? `${address} (Note: ${instructions})` : address;
+
     if (paymentMethod === "Pay Online") {
       router.push({
         pathname: "/reservation/mock-paystack",
-        params: { reservationId, fulfillmentMethod },
+        params: { reservationId, fulfillmentMethod, address: fullAddress },
       } as never);
     } else {
-      updateFulfillmentAndPayment(reservationId, fulfillmentMethod, paymentMethod);
+      await updateFulfillmentAndPayment(reservationId, fulfillmentMethod, paymentMethod, fullAddress);
       router.push("/(tabs)/reservations" as never);
     }
   };
