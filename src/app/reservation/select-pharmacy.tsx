@@ -5,14 +5,11 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect } from "react";
 
-const pharmacies = [
-  { name: "Ghana National Pharmacy", distance: "0.3 km", rating: 4.8, open: true, stock: true },
-  { name: "East Legon Pharmacy Ltd", distance: "1.2 km", rating: 4.6, open: true, stock: true },
-  { name: "Accra Mall Pharmacy", distance: "2.1 km", rating: 4.7, open: true, stock: false },
-];
+import { useApp } from "@/context/AppContext";
 
 export default function SelectPharmacyScreen() {
   const router = useRouter();
+  const { pharmacies } = useApp();
   const { medicineId, quantity } = useLocalSearchParams<{ medicineId?: string; quantity?: string }>();
 
   useEffect(() => {
@@ -60,12 +57,12 @@ export default function SelectPharmacyScreen() {
                 <View className="flex-1 pr-2">
                   <View className="flex-row items-center gap-2">
                     <Text className="text-slate-900 font-bold">{pharmacy.name}</Text>
-                    {pharmacy.open ? <Ionicons name="time-outline" size={12} color="#0f766e" /> : null}
+                    {pharmacy.isOpen ? <Ionicons name="time-outline" size={12} color="#0f766e" /> : null}
                   </View>
                   <Text className="text-slate-500 text-xs mt-1">{pharmacy.distance} · {pharmacy.rating} rating</Text>
                 </View>
-                <View className={`px-2.5 py-1 rounded-full ${pharmacy.stock ? "bg-emerald-50" : "bg-red-50"}`}>
-                  <Text className={`text-[10px] font-bold ${pharmacy.stock ? "text-emerald-700" : "text-red-700"}`}>{pharmacy.stock ? "In Stock" : "Low Stock"}</Text>
+                <View className={`px-2.5 py-1 rounded-full ${pharmacy.isOpen ? "bg-emerald-50" : "bg-red-50"}`}>
+                  <Text className={`text-[10px] font-bold ${pharmacy.isOpen ? "text-emerald-700" : "text-red-700"}`}>{pharmacy.isOpen ? "Open" : "Closed"}</Text>
                 </View>
               </View>
             </TouchableOpacity>

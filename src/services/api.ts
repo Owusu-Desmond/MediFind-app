@@ -101,6 +101,10 @@ export interface BackendMedicine {
   description?: string;
   manufacturer?: string;
   image_url?: string;
+  dosage_instructions?: string;
+  precautions?: string;
+  side_effects?: string;
+  tags?: string;
 }
 
 export interface BackendReservationItem {

@@ -17,6 +17,7 @@
     "expo-constants": "~16.0.2",
     "expo-font": "~12.0.9",
     "expo-linking": "~6.3.1",
+    "expo-location": "~17.0.1",
     "expo-router": "~3.5.23",
     "expo-splash-screen": "~0.27.5",
     "expo-status-bar": "~1.12.1",
@@ -31,12 +32,14 @@
     "react-native-screens": "3.31.1",
     "react-native-svg": "15.2.0",
     "react-native-web": "~0.19.10",
+    "react-native-webview": "^13.8.6",
     "react-native-worklets": "^0.10.2",
     "react-native-worklets-core": "^1.6.3",
     "tailwindcss": "3.3.2"
   },
   "devDependencies": {
     "@babel/core": "^7.24.0",
+    "@types/node": "^26.4.0",
     "@types/react": "~18.2.79",
     "autoprefixer": "^10.5.2",
     "postcss": "^8.5.19",

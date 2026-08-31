@@ -12,6 +12,7 @@ export default function MockPaystackScreen() {
     address?: string;
   }>();
   const { updateFulfillmentAndPayment } = useApp();
+  const router = useRouter();
 
   useEffect(() => {
     // Simulate a payment process taking 3 seconds

@@ -1,6 +1,14 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { api, getStoredToken, BackendReservation, BackendMedicine, BackendPharmacy, BackendUser } from "@/services/api";
+import { Coordinates, calculateDistance, formatDistance } from "@/utils/distance";
+import {
+  LocationPermissionStatus,
+  requestLocationPermission,
+  checkLocationPermission,
+  getCurrentUserLocation,
+  watchUserLocation,
+} from "@/services/location";
 
 export interface Medicine {
   id: string;
@@ -13,6 +21,7 @@ export interface Medicine {
   pharmacy: string;
   pharmacyId: string;
   distance: string;
+  distanceKm?: number | null;
   rating: number;
   reviews: number;
   description?: string;
@@ -29,6 +38,7 @@ export interface Pharmacy {
   name: string;
   address: string;
   distance: string;
+  distanceKm?: number | null;
   rating: number;
   reviews: number;
   isOpen: boolean;
@@ -51,15 +61,15 @@ export interface Reservation {
   fulfillmentTime?: string;
   paymentMethod?: string;
   status:
-    | "Pending Pharmacy Review"
-    | "Approved"
-    | "Paid"
-    | "Ready for Pickup"
-    | "Preparing"
-    | "Out for Delivery"
-    | "Delivered"
-    | "Collected"
-    | "Cancelled";
+  | "Pending Pharmacy Review"
+  | "Approved"
+  | "Paid"
+  | "Ready for Pickup"
+  | "Preparing"
+  | "Out for Delivery"
+  | "Delivered"
+  | "Collected"
+  | "Cancelled";
   date: string;
   pickupDate?: string;
   notes?: string;
@@ -84,6 +94,9 @@ interface AppContextType {
   loading: boolean;
   searchQuery: string;
   setSearchQuery: (q: string) => void;
+  userLocation: Coordinates | null;
+  locationPermission: LocationPermissionStatus;
+  requestLocationAccess: () => Promise<boolean>;
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
   register: (name: string, email: string, password: string, phone: string, location?: string) => Promise<boolean>;
@@ -175,8 +188,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [savedPharmacies, setSavedPharmacies] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Load cached user and local preferences on mount
+  // Live GPS Location state
+  const [userLocation, setUserLocation] = useState<Coordinates | null>(null);
+  const [locationPermission, setLocationPermission] = useState<LocationPermissionStatus>("undetermined");
+
+  const requestLocationAccess = async (): Promise<boolean> => {
+    try {
+      const result = await getCurrentUserLocation();
+      setLocationPermission(result.status);
+      if (result.coords) {
+        setUserLocation(result.coords);
+        return true;
+      }
+      return false;
+    } catch {
+      setLocationPermission("denied");
+      return false;
+    }
+  };
+
+  // Initialize app, user, and start GPS location tracking
   useEffect(() => {
+    let locationSub: any = null;
+
     const initApp = async () => {
       try {
         const storedUser = await AsyncStorage.getItem("mf_user_data");
@@ -185,26 +219,108 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (storedUser) {
           try {
             setUser(JSON.parse(storedUser));
-          } catch {}
+          } catch { }
         }
 
         if (storedSaved) {
           try {
             setSavedPharmacies(JSON.parse(storedSaved));
-          } catch {}
+          } catch { }
         }
-      } catch {}
+      } catch { }
 
-      // Fetch live backend data
+      // 1. Initial live location fetch & permission check
+      try {
+        const perm = await checkLocationPermission();
+        setLocationPermission(perm);
+        if (perm === "granted") {
+          const locRes = await getCurrentUserLocation();
+          if (locRes.coords) {
+            setUserLocation(locRes.coords);
+          }
+        }
+      } catch { }
+
+      // 2. Fetch live backend data
       await refreshData();
+
+      // 3. Start live location subscription
+      try {
+        locationSub = await watchUserLocation((newCoords) => {
+          setUserLocation(newCoords);
+        });
+      } catch { }
     };
 
     initApp();
+
+    return () => {
+      if (locationSub && typeof locationSub.remove === "function") {
+        locationSub.remove();
+      }
+    };
   }, []);
 
   useEffect(() => {
     AsyncStorage.setItem("mf_saved_pharmacies", JSON.stringify(savedPharmacies));
   }, [savedPharmacies]);
+
+  // Recalculate distances dynamically when userLocation updates
+  useEffect(() => {
+    if (!userLocation) return;
+
+    // Recalculate and sort pharmacies
+    setPharmacies((prevPharms) => {
+      if (prevPharms.length === 0) return prevPharms;
+      const updated = prevPharms.map((p) => {
+        const distKm = calculateDistance(
+          userLocation.latitude,
+          userLocation.longitude,
+          p.lat,
+          p.lng
+        );
+        return {
+          ...p,
+          distanceKm: distKm,
+          distance: formatDistance(distKm),
+        };
+      });
+
+      // Sort closest first
+      return updated.sort((a, b) => {
+        if (a.distanceKm === null || a.distanceKm === undefined) return 1;
+        if (b.distanceKm === null || b.distanceKm === undefined) return -1;
+        return a.distanceKm - b.distanceKm;
+      });
+    });
+
+    // Recalculate and sort medicines
+    setMedicines((prevMeds) => {
+      if (prevMeds.length === 0) return prevMeds;
+      const updated = prevMeds.map((m) => {
+        const matchingPharma = pharmacies.find((p) => p.id === m.pharmacyId);
+        const distKm = matchingPharma
+          ? calculateDistance(
+            userLocation.latitude,
+            userLocation.longitude,
+            matchingPharma.lat,
+            matchingPharma.lng
+          )
+          : null;
+        return {
+          ...m,
+          distanceKm: distKm,
+          distance: formatDistance(distKm),
+        };
+      });
+
+      return updated.sort((a, b) => {
+        if (a.distanceKm === null || a.distanceKm === undefined) return 1;
+        if (b.distanceKm === null || b.distanceKm === undefined) return -1;
+        return a.distanceKm - b.distanceKm;
+      });
+    });
+  }, [userLocation]);
 
   const refreshData = async () => {
     try {
@@ -215,20 +331,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try {
         const backendPharmacies = await api.getPharmacies();
         if (Array.isArray(backendPharmacies) && backendPharmacies.length > 0) {
-          loadedPharmacies = backendPharmacies.map((bp) => ({
-            id: String(bp.id),
-            name: bp.name,
-            address: bp.location,
-            distance: "1.2 km",
-            rating: 4.8,
-            reviews: 24,
-            isOpen: true,
-            openHours: bp.opening_hours || "Mon–Sat: 8am – 9pm",
-            phone: bp.phone || "+233 24 000 0000",
-            verified: bp.verified ?? true,
-            lat: bp.lat,
-            lng: bp.lng,
-          }));
+          loadedPharmacies = backendPharmacies.map((bp) => {
+            const distKm = userLocation
+              ? calculateDistance(userLocation.latitude, userLocation.longitude, bp.lat, bp.lng)
+              : null;
+            return {
+              id: String(bp.id),
+              name: bp.name,
+              address: bp.location,
+              distance: formatDistance(distKm),
+              distanceKm: distKm,
+              rating: 4.8,
+              reviews: 24,
+              isOpen: true,
+              openHours: bp.opening_hours || "Mon–Sat: 8am – 9pm",
+              phone: bp.phone || "+233 24 000 0000",
+              verified: bp.verified ?? true,
+              lat: bp.lat,
+              lng: bp.lng,
+            };
+          });
+
+          // Sort closest first if location is available
+          if (userLocation) {
+            loadedPharmacies.sort((a, b) => {
+              if (a.distanceKm === null || a.distanceKm === undefined) return 1;
+              if (b.distanceKm === null || b.distanceKm === undefined) return -1;
+              return a.distanceKm - b.distanceKm;
+            });
+          }
+
           setPharmacies(loadedPharmacies);
         } else {
           setPharmacies([]);
@@ -239,13 +371,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       // 2. Fetch live Medicines from backend inventory/search
       try {
-        const searchResults = await api.searchMedicines("");
+        const searchResults = await api.searchMedicines(
+          "",
+          userLocation ? userLocation.latitude : undefined,
+          userLocation ? userLocation.longitude : undefined
+        );
+
         if (Array.isArray(searchResults) && searchResults.length > 0) {
           const transformedMeds: Medicine[] = searchResults.map((item) => {
             const med = item.medicine;
             const pharma = item.pharmacy;
             const inv = item.inventory;
-            const dist = item.distance_km ? `${item.distance_km.toFixed(1)} km` : "0.5 km";
+            const distKm = userLocation
+              ? calculateDistance(userLocation.latitude, userLocation.longitude, pharma.lat, pharma.lng)
+              : (item.distance_km ?? null);
 
             return {
               id: `${med.id}-${pharma.id}`,
@@ -257,7 +396,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               price: inv?.price ?? 15.0,
               pharmacy: pharma.name,
               pharmacyId: String(pharma.id),
-              distance: dist,
+              distance: formatDistance(distKm),
+              distanceKm: distKm,
               rating: 4.8,
               reviews: 18,
               description: med.description || "",
@@ -269,12 +409,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               imageUrl: med.image_url || undefined,
             };
           });
+
+          if (userLocation) {
+            transformedMeds.sort((a, b) => {
+              if (a.distanceKm === null || a.distanceKm === undefined) return 1;
+              if (b.distanceKm === null || b.distanceKm === undefined) return -1;
+              return a.distanceKm - b.distanceKm;
+            });
+          }
+
           setMedicines(transformedMeds);
         } else {
           // Fallback to medicines catalog if search returned empty
           const catalogMeds = await api.getMedicines();
           if (Array.isArray(catalogMeds) && catalogMeds.length > 0) {
             const firstPharma = loadedPharmacies.length > 0 ? loadedPharmacies[0] : null;
+            const distKm = userLocation && firstPharma
+              ? calculateDistance(userLocation.latitude, userLocation.longitude, firstPharma.lat, firstPharma.lng)
+              : null;
+
             const transformedMeds: Medicine[] = catalogMeds.map((med) => ({
               id: String(med.id),
               rawMedicineId: med.id,
@@ -285,7 +438,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               price: 15.0,
               pharmacy: firstPharma?.name || "Verified Pharmacy",
               pharmacyId: String(firstPharma?.id || "1"),
-              distance: firstPharma?.distance || "0.8 km",
+              distance: formatDistance(distKm),
+              distanceKm: distKm,
               rating: 4.8,
               reviews: 15,
               description: med.description || "",
@@ -362,7 +516,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const logout = async () => {
     try {
       await api.logout();
-    } catch {}
+    } catch { }
     setUser(null);
     setReservations([]);
     await AsyncStorage.removeItem("mf_user_data");
@@ -431,7 +585,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!isNaN(numericId)) {
         await api.updateReservationStatus(numericId, "Approved");
       }
-    } catch {}
+    } catch { }
 
     setReservations((prev) =>
       prev.map((res) => (res.id === id ? { ...res, status: "Approved" } : res))
@@ -449,7 +603,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!isNaN(numericId)) {
         await api.updateReservationFulfillment(numericId, fulfillmentMethod, paymentMethod, address);
       }
-    } catch {}
+    } catch { }
 
     setReservations((prev) =>
       prev.map((reservation) => {
@@ -458,8 +612,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             paymentMethod === "Pay Online"
               ? "Paid"
               : fulfillmentMethod === "Pickup"
-              ? "Ready for Pickup"
-              : "Preparing";
+                ? "Ready for Pickup"
+                : "Preparing";
 
           return {
             ...reservation,
@@ -480,7 +634,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!isNaN(numericId)) {
         await api.updateReservationStatus(numericId, "Paid");
       }
-    } catch {}
+    } catch { }
 
     setReservations((prev) =>
       prev.map((res) => (res.id === id ? { ...res, status: "Paid" } : res))
@@ -514,7 +668,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!isNaN(numericId) && nextStatus !== target.status) {
         await api.updateReservationStatus(numericId, nextStatus);
       }
-    } catch {}
+    } catch { }
 
     setReservations((prev) =>
       prev.map((res) => (res.id === id ? { ...res, status: nextStatus } : res))
@@ -527,7 +681,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!isNaN(numericId)) {
         await api.cancelReservation(numericId);
       }
-    } catch {}
+    } catch { }
 
     setReservations((prev) =>
       prev.map((r) => (r.id === id ? { ...r, status: "Cancelled" } : r))
@@ -550,6 +704,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         loading,
         searchQuery,
         setSearchQuery,
+        userLocation,
+        locationPermission,
+        requestLocationAccess,
         login,
         logout,
         register,
