@@ -15,6 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useApp, Pharmacy } from "@/context/AppContext";
 import { calculateDistance, formatDistance } from "@/utils/distance";
 import UniversalMapView from "@/components/UniversalMapView";
+import { StatusBar } from "expo-status-bar";
 
 const { width } = Dimensions.get("window");
 
@@ -26,7 +27,7 @@ export default function MedLocatorDirectionsScreen() {
   // Find target pharmacy, defaulting to first pharmacy or matching ID
   const initialPharmacy =
     pharmacies.find((p) => p.id === pharmacyId) || (pharmacies.length > 0 ? pharmacies[0] : null);
-  
+
   const [selectedPharmacy, setSelectedPharmacy] = useState<Pharmacy | null>(initialPharmacy);
   const [isSearchingArea, setIsSearchingArea] = useState(false);
 
@@ -86,9 +87,16 @@ export default function MedLocatorDirectionsScreen() {
   return (
     <SafeAreaView className="flex-1 bg-slate-100" edges={["top"]}>
       {/* Top Header Bar */}
+      <StatusBar style="dark" />
       <View className="px-5 py-3 bg-white/95 backdrop-blur-md border-b border-slate-100 flex-row items-center justify-between z-20">
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => {
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace("/(tabs)/pharmacies");
+            }
+          }}
           className="w-10 h-10 rounded-2xl items-center justify-center bg-slate-50 border border-slate-100"
         >
           <Ionicons name="arrow-back" size={22} color="#0f766e" />
@@ -152,11 +160,10 @@ export default function MedLocatorDirectionsScreen() {
                 <TouchableOpacity
                   key={p.id}
                   onPress={() => setSelectedPharmacy(p)}
-                  className={`px-3.5 py-2 rounded-2xl flex-row items-center gap-1.5 shadow-md border ${
-                    isSelected
+                  className={`px-3.5 py-2 rounded-2xl flex-row items-center gap-1.5 shadow-md border ${isSelected
                       ? "bg-teal-900 border-teal-800"
                       : "bg-white/95 backdrop-blur-md border-slate-100"
-                  }`}
+                    }`}
                 >
                   <Ionicons
                     name="storefront"
@@ -164,9 +171,8 @@ export default function MedLocatorDirectionsScreen() {
                     color={isSelected ? "white" : "#0f766e"}
                   />
                   <Text
-                    className={`text-xs font-bold ${
-                      isSelected ? "text-white" : "text-slate-800"
-                    }`}
+                    className={`text-xs font-bold ${isSelected ? "text-white" : "text-slate-800"
+                      }`}
                   >
                     {p.name.split(" ")[0]}
                   </Text>

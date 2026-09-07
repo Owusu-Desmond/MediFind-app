@@ -41,7 +41,16 @@ export default function StatusTimelineScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 28 }}>
         <View className="px-6 pt-4 pb-2">
           <View className="flex-row items-center justify-between mb-4">
-            <TouchableOpacity onPress={() => router.back()} className="w-10 h-10 rounded-xl bg-white border border-slate-200 items-center justify-center shadow-sm">
+            <TouchableOpacity
+              onPress={() => {
+                if (router.canGoBack()) {
+                  router.back();
+                } else {
+                  router.replace("/(tabs)/reservations");
+                }
+              }}
+              className="w-10 h-10 rounded-xl bg-white border border-slate-200 items-center justify-center shadow-sm"
+            >
               <Ionicons name="arrow-back" size={20} color="#0f766e" />
             </TouchableOpacity>
             <Text className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Reservation Status</Text>

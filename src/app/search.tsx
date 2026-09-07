@@ -34,7 +34,16 @@ export default function SearchScreen() {
             <Text className="text-slate-400 text-xs font-bold uppercase tracking-[0.2em]">Search</Text>
             <Text className="text-slate-900 text-2xl font-bold mt-1">Medicine Results</Text>
           </View>
-          <TouchableOpacity onPress={() => router.back()} className="w-10 h-10 rounded-xl bg-white border border-slate-200 items-center justify-center shadow-sm">
+          <TouchableOpacity
+            onPress={() => {
+              if (router.canGoBack()) {
+                router.back();
+              } else {
+                router.replace("/(tabs)/home");
+              }
+            }}
+            className="w-10 h-10 rounded-xl bg-white border border-slate-200 items-center justify-center shadow-sm"
+          >
             <Ionicons name="close" size={20} color="#0f766e" />
           </TouchableOpacity>
         </View>

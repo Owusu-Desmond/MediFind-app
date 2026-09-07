@@ -59,7 +59,13 @@ export default function RegisterScreen() {
             <View className="bg-primary rounded-[32px] px-6 pt-6 pb-8 overflow-hidden">
               <View className="absolute -right-8 top-0 w-32 h-32 rounded-full bg-white/10" />
               <TouchableOpacity
-                onPress={() => router.back()}
+                onPress={() => {
+                  if (router.canGoBack()) {
+                    router.back();
+                  } else {
+                    router.replace("/(auth)/login");
+                  }
+                }}
                 className="w-10 h-10 rounded-xl bg-white/20 items-center justify-center mb-8"
               >
                 <Ionicons name="arrow-back" size={20} color="white" />

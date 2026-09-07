@@ -22,7 +22,16 @@ export default function ForgotPasswordScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} className="flex-1">
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1 }}>
           <View className="px-6 pt-4 pb-6 flex-1 justify-center">
-            <TouchableOpacity onPress={() => router.back()} className="w-10 h-10 rounded-xl bg-white items-center justify-center border border-slate-200 mb-6">
+            <TouchableOpacity
+              onPress={() => {
+                if (router.canGoBack()) {
+                  router.back();
+                } else {
+                  router.replace("/(auth)/login");
+                }
+              }}
+              className="w-10 h-10 rounded-xl bg-white items-center justify-center border border-slate-200 mb-6"
+            >
               <Ionicons name="arrow-back" size={20} color="#0f766e" />
             </TouchableOpacity>
 

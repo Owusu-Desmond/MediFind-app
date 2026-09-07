@@ -25,7 +25,16 @@ export default function FinalReviewScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 28 }}>
         <View className="px-6 pt-4 pb-2">
           <View className="flex-row items-center justify-between mb-4">
-            <TouchableOpacity onPress={() => router.back()} className="w-10 h-10 rounded-xl bg-white border border-slate-200 items-center justify-center shadow-sm">
+            <TouchableOpacity
+              onPress={() => {
+                if (router.canGoBack()) {
+                  router.back();
+                } else {
+                  router.replace("/(tabs)/home");
+                }
+              }}
+              className="w-10 h-10 rounded-xl bg-white border border-slate-200 items-center justify-center shadow-sm"
+            >
               <Ionicons name="arrow-back" size={20} color="#0f766e" />
             </TouchableOpacity>
             <Text className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Step 6 of 7</Text>
@@ -56,7 +65,16 @@ export default function FinalReviewScreen() {
           <TouchableOpacity onPress={handleSubmit} className="bg-primary rounded-2xl py-4 items-center shadow-lg" style={{ shadowColor: "#0f766e", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.22, shadowRadius: 16 }}>
             <Text className="text-white font-bold">Submit Reservation Request</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.back()} className="bg-white rounded-2xl py-4 items-center border border-slate-200">
+          <TouchableOpacity
+            onPress={() => {
+              if (router.canGoBack()) {
+                router.back();
+              } else {
+                router.replace("/(tabs)/home");
+              }
+            }}
+            className="bg-white rounded-2xl py-4 items-center border border-slate-200"
+          >
             <Text className="text-primary font-bold">Go Back</Text>
           </TouchableOpacity>
         </View>

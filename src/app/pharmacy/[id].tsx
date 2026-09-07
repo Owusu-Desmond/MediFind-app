@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { useApp } from "@/context/AppContext";
 import UniversalMapView from "@/components/UniversalMapView";
@@ -30,7 +31,16 @@ export default function PharmacyDetailScreen() {
     return (
       <SafeAreaView className="flex-1 bg-slate-50 items-center justify-center">
         <Text className="text-slate-400 font-bold">Pharmacy not found</Text>
-        <TouchableOpacity onPress={() => router.back()} className="mt-4">
+        <TouchableOpacity
+          onPress={() => {
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace("/(tabs)/pharmacies");
+            }
+          }}
+          className="mt-4"
+        >
           <Text className="text-primary font-bold">Go Back</Text>
         </TouchableOpacity>
       </SafeAreaView>
@@ -56,14 +66,21 @@ export default function PharmacyDetailScreen() {
       : `https://maps.google.com/maps?q=${encodeURIComponent(pharmacy.name + ", " + pharmacy.address)}&z=15&output=embed`;
 
   return (
-    <SafeAreaView className="flex-1 bg-slate-50" edges={["top"]}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 32 }}>
+    <SafeAreaView className="flex-1 bg-primary" edges={["top"]}>
+      <StatusBar style="light" />
+      <ScrollView showsVerticalScrollIndicator={false} className="bg-slate-50" contentContainerStyle={{ paddingBottom: 32 }}>
         {/* Hero Header */}
         <View className="bg-primary pt-4 pb-12 px-6 rounded-b-[40px]">
           {/* Nav row */}
           <View className="flex-row items-center justify-between mb-6">
             <TouchableOpacity
-              onPress={() => router.back()}
+              onPress={() => {
+                if (router.canGoBack()) {
+                  router.back();
+                } else {
+                  router.replace("/(tabs)/pharmacies");
+                }
+              }}
               className="w-10 h-10 rounded-xl bg-white/20 items-center justify-center"
             >
               <Ionicons name="arrow-back" size={20} color="white" />
