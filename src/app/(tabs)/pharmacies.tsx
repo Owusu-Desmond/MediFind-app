@@ -11,7 +11,6 @@ import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useApp, Pharmacy } from "@/context/AppContext";
-import PharmacyMap from "@/components/PharmacyMap";
 
 export default function PharmaciesScreen() {
   const {
@@ -25,8 +24,6 @@ export default function PharmaciesScreen() {
   } = useApp();
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
-  const [viewMode, setViewMode] = useState<"list" | "map">("list");
-  const [selectedMapPharmacy, setSelectedMapPharmacy] = useState<Pharmacy | null>(null);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -61,44 +58,24 @@ export default function PharmaciesScreen() {
 
           {/* View Mode Toggle: List vs Map */}
           <View className="bg-slate-200/80 p-1 rounded-2xl flex-row items-center">
-            <TouchableOpacity
-              onPress={() => setViewMode("list")}
-              className={`px-3 py-1.5 rounded-xl flex-row items-center gap-1 ${
-                viewMode === "list" ? "bg-white shadow-sm" : ""
-              }`}
-            >
-              <Ionicons
-                name="list"
-                size={14}
-                color={viewMode === "list" ? "#0f766e" : "#64748b"}
-              />
-              <Text
-                className={`text-xs font-bold ${
-                  viewMode === "list" ? "text-primary" : "text-slate-600"
-                }`}
-              >
-                List
-              </Text>
-            </TouchableOpacity>
+            <View className="px-3 py-1.5 rounded-xl flex-row items-center gap-1 bg-white shadow-sm">
+              <Ionicons name="list" size={14} color="#0f766e" />
+              <Text className="text-xs font-bold text-primary">List</Text>
+            </View>
 
             <TouchableOpacity
-              onPress={() => setViewMode("map")}
-              className={`px-3 py-1.5 rounded-xl flex-row items-center gap-1 ${
-                viewMode === "map" ? "bg-white shadow-sm" : ""
-              }`}
+              onPress={() => {
+                const firstPharmacy = pharmacies.length > 0 ? pharmacies[0] : null;
+                router.push({
+                  pathname: "/pharmacy/directions",
+                  params: firstPharmacy ? { pharmacyId: firstPharmacy.id } : {},
+                } as never);
+              }}
+              activeOpacity={0.7}
+              className="px-3 py-1.5 rounded-xl flex-row items-center gap-1"
             >
-              <Ionicons
-                name="map"
-                size={14}
-                color={viewMode === "map" ? "#0f766e" : "#64748b"}
-              />
-              <Text
-                className={`text-xs font-bold ${
-                  viewMode === "map" ? "text-primary" : "text-slate-600"
-                }`}
-              >
-                Map
-              </Text>
+              <Ionicons name="map" size={14} color="#64748b" />
+              <Text className="text-xs font-bold text-slate-600">Map</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -137,22 +114,10 @@ export default function PharmaciesScreen() {
       </View>
 
       {/* Main Content Area */}
-      {viewMode === "map" ? (
-        <View className="flex-1 px-6 pb-6 pt-1">
-          <PharmacyMap
-            userLocation={userLocation}
-            pharmacies={pharmacies}
-            selectedPharmacyId={selectedMapPharmacy?.id}
-            onSelectPharmacy={(p) => setSelectedMapPharmacy(p)}
-            onRequestLocation={requestLocationAccess}
-            locationPermission={locationPermission}
-          />
-        </View>
-      ) : (
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          className="flex-1 px-6"
-          contentContainerStyle={{ paddingBottom: 24, paddingTop: 4 }}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        className="flex-1 px-6"
+        contentContainerStyle={{ paddingBottom: 24, paddingTop: 4 }}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -309,7 +274,6 @@ export default function PharmaciesScreen() {
             })
           )}
         </ScrollView>
-      )}
     </SafeAreaView>
   );
 }
