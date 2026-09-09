@@ -70,6 +70,8 @@ export default function ReservationsScreen() {
         return { bg: "bg-blue-50", border: "border-blue-100", text: "text-blue-700", icon: "bag-check-outline" as const, dot: "bg-blue-500" };
       case "Cancelled":
         return { bg: "bg-red-50", border: "border-red-100", text: "text-red-600", icon: "close-circle-outline" as const, dot: "bg-red-500" };
+      default:
+        return { bg: "bg-teal-50", border: "border-teal-100", text: "text-teal-700", icon: "receipt-outline" as const, dot: "bg-teal-500" };
     }
   };
 
@@ -188,29 +190,45 @@ export default function ReservationsScreen() {
                   <View className="w-1/2 flex-row items-center gap-2">
                     <Ionicons name="barcode-outline" size={14} color="#64748b" />
                     <View>
-                      <Text className="text-[9px] text-slate-400 font-bold uppercase">Ref</Text>
-                      <Text className="text-xs text-slate-700 font-bold">{res.refNumber}</Text>
+                      <Text className="text-[9px] text-slate-400 font-bold uppercase">Code</Text>
+                      <Text className="text-xs text-slate-800 font-extrabold">{res.reservationCode || res.refNumber}</Text>
                     </View>
                   </View>
                   <View className="w-1/2 flex-row items-center gap-2">
-                    <Ionicons name="cube-outline" size={14} color="#64748b" />
+                    <Ionicons name="card-outline" size={14} color="#64748b" />
                     <View>
-                      <Text className="text-[9px] text-slate-400 font-bold uppercase">Qty</Text>
-                      <Text className="text-xs text-slate-700 font-bold">{res.quantity} unit(s)</Text>
+                      <Text className="text-[9px] text-slate-400 font-bold uppercase">Payment</Text>
+                      <Text
+                        className={`text-xs font-bold ${
+                          res.paymentStatus === "PAID"
+                            ? "text-emerald-600"
+                            : res.status === "Pending Pharmacy Review" || !res.paymentMethod
+                            ? "text-slate-500"
+                            : "text-amber-600"
+                        }`}
+                      >
+                        {res.paymentStatus === "PAID"
+                          ? `PAID • ${res.paymentMethod === "PAYSTACK" ? "Paystack" : "Cash"}`
+                          : res.status === "Pending Pharmacy Review"
+                          ? "Pending Review"
+                          : !res.paymentMethod
+                          ? "Awaiting Selection"
+                          : `UNPAID • ${res.paymentMethod === "PAYSTACK" ? "Paystack" : "Cash"}`}
+                      </Text>
                     </View>
                   </View>
                   <View className="w-1/2 flex-row items-center gap-2">
-                    <Ionicons name="calendar-outline" size={14} color="#64748b" />
+                    <Ionicons name="cash-outline" size={14} color="#64748b" />
                     <View>
-                      <Text className="text-[9px] text-slate-400 font-bold uppercase">Date</Text>
-                      <Text className="text-xs text-slate-700 font-bold">{res.date}</Text>
+                      <Text className="text-[9px] text-slate-400 font-bold uppercase">Total</Text>
+                      <Text className="text-xs text-slate-800 font-extrabold">GH₵ {(res.totalPrice || 15.0).toFixed(2)}</Text>
                     </View>
                   </View>
                   <View className="w-1/2 flex-row items-center gap-2">
                     <Ionicons name={res.fulfillmentMethod === "Delivery" ? "bicycle-outline" : "storefront-outline"} size={14} color="#64748b" />
                     <View>
                       <Text className="text-[9px] text-slate-400 font-bold uppercase">Mode</Text>
-                      <Text className="text-xs text-slate-700 font-bold">{res.fulfillmentMethod}</Text>
+                      <Text className="text-xs text-slate-700 font-bold">{res.fulfillmentMethod} ({res.quantity}x)</Text>
                     </View>
                   </View>
                 </View>
@@ -224,48 +242,53 @@ export default function ReservationsScreen() {
                         Awaiting review & confirmation from {res.pharmacyName}.
                       </Text>
                     </View>
-                    <View className="flex-row items-center gap-3">
-                      <TouchableOpacity
-                        onPress={() => handleCancel(res.id, res.medicineName)}
-                        className="flex-1 flex-row items-center justify-center gap-1.5 border border-red-200 py-3 rounded-2xl"
-                      >
-                        <Ionicons name="close-outline" size={16} color="#dc2626" />
-                        <Text className="text-red-600 text-xs font-bold">Cancel</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        onPress={() => router.push({ pathname: "/reservation/status-timeline", params: { reservationId: res.id } } as never)}
-                        className="flex-1 flex-row items-center justify-center gap-1.5 bg-primary py-3 rounded-2xl"
-                      >
-                        <Ionicons name="time-outline" size={16} color="white" />
-                        <Text className="text-white text-xs font-bold">Track Status</Text>
-                      </TouchableOpacity>
-                    </View>
+                    <TouchableOpacity
+                      onPress={() => handleCancel(res.id, res.medicineName)}
+                      className="flex-row items-center justify-center gap-1.5 border border-red-200 bg-red-50/30 py-3 rounded-2xl"
+                    >
+                      <Ionicons name="close-outline" size={16} color="#dc2626" />
+                      <Text className="text-red-600 text-xs font-bold">Cancel Reservation</Text>
+                    </TouchableOpacity>
                   </View>
                 )}
 
-                {res.status === "Approved" && (
+                {(res.status === "Approved" || res.status === "Reserved") && (
                   <View className="mt-4">
                     <View className="bg-emerald-50/80 border border-emerald-100/80 rounded-2xl p-3 mb-3 flex-row items-center gap-2">
                       <Ionicons name="checkmark-circle-outline" size={16} color="#059669" />
                       <Text className="text-emerald-800 text-[11px] font-semibold flex-1">
-                        Reservation approved! Please select fulfillment & payment options.
+                        {res.paymentStatus === "PAID"
+                          ? "✓ Payment confirmed! Medicine reservation is active."
+                          : "Reservation approved! Please select fulfillment & payment method."}
                       </Text>
                     </View>
                     <View className="flex-row items-center gap-3">
-                      <TouchableOpacity
-                        onPress={() => handleCompleteOptions(res)}
-                        className="flex-[1.5] flex-row items-center justify-center gap-1.5 bg-primary py-3 rounded-2xl shadow-sm"
-                      >
-                        <Ionicons name="options-outline" size={16} color="white" />
-                        <Text className="text-white text-xs font-bold">Choose Mode & Pay</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        onPress={() => router.push({ pathname: "/reservation/status-timeline", params: { reservationId: res.id } } as never)}
-                        className="flex-1 flex-row items-center justify-center gap-1.5 border border-slate-200 py-3 rounded-2xl"
-                      >
-                        <Ionicons name="time-outline" size={16} color="#0f766e" />
-                        <Text className="text-primary text-xs font-bold">Track</Text>
-                      </TouchableOpacity>
+                      {res.paymentStatus === "PAID" ? (
+                        <TouchableOpacity
+                          onPress={() => router.push({ pathname: "/reservation/status-timeline", params: { reservationId: res.id } } as never)}
+                          className="flex-1 flex-row items-center justify-center gap-1.5 bg-primary py-3 rounded-2xl shadow-sm"
+                        >
+                          <Ionicons name="time-outline" size={16} color="white" />
+                          <Text className="text-white text-xs font-bold">Track Status Timeline</Text>
+                        </TouchableOpacity>
+                      ) : (
+                        <>
+                          <TouchableOpacity
+                            onPress={() => handleCompleteOptions(res)}
+                            className="flex-[1.5] flex-row items-center justify-center gap-1.5 bg-primary py-3 rounded-2xl shadow-sm"
+                          >
+                            <Ionicons name="card-outline" size={16} color="white" />
+                            <Text className="text-white text-xs font-bold">Choose Mode & Pay</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            onPress={() => router.push({ pathname: "/reservation/status-timeline", params: { reservationId: res.id } } as never)}
+                            className="flex-1 flex-row items-center justify-center gap-1.5 border border-slate-200 py-3 rounded-2xl"
+                          >
+                            <Ionicons name="time-outline" size={16} color="#0f766e" />
+                            <Text className="text-primary text-xs font-bold">Track</Text>
+                          </TouchableOpacity>
+                        </>
+                      )}
                     </View>
                   </View>
                 )}
@@ -281,6 +304,7 @@ export default function ReservationsScreen() {
                     </TouchableOpacity>
                   </View>
                 )}
+
 
                 {(res.status === "Delivered" || res.status === "Collected") && (
                   <View className="mt-4">
@@ -303,11 +327,20 @@ export default function ReservationsScreen() {
                 )}
 
                 {res.status === "Cancelled" && (
-                  <View className="bg-red-50 border border-red-100 rounded-2xl p-3 mt-4 flex-row items-center gap-2">
-                    <Ionicons name="close-circle" size={18} color="#dc2626" />
-                    <Text className="text-red-700 text-xs font-bold flex-1">
-                      This reservation was cancelled.
-                    </Text>
+                  <View className="bg-red-50 border border-red-100 rounded-2xl p-3 mt-4 gap-1">
+                    <View className="flex-row items-center gap-2">
+                      <Ionicons name="close-circle" size={18} color="#dc2626" />
+                      <Text className="text-red-700 text-xs font-bold flex-1">
+                        This reservation was cancelled.
+                      </Text>
+                    </View>
+                    {res.rejectionReason && (
+                      <View className="ml-6 bg-red-100/50 rounded-xl px-2.5 py-1.5 mt-0.5">
+                        <Text className="text-red-800 text-[11px] font-semibold leading-relaxed">
+                          Reason: {res.rejectionReason}
+                        </Text>
+                      </View>
+                    )}
                   </View>
                 )}
               </View>

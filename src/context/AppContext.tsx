@@ -59,21 +59,28 @@ export interface Reservation {
   fulfillmentMethod?: "Pickup" | "Delivery";
   fulfillmentAddress?: string;
   fulfillmentTime?: string;
-  paymentMethod?: string;
+  paymentMethod?: "PAYSTACK" | "CASH" | string;
+  paymentStatus?: "UNPAID" | "PENDING" | "PAID" | "FAILED" | "REFUNDED" | string;
   status:
   | "Pending Pharmacy Review"
   | "Approved"
+  | "Reserved"
   | "Paid"
   | "Ready for Pickup"
   | "Preparing"
   | "Out for Delivery"
   | "Delivered"
   | "Collected"
-  | "Cancelled";
+  | "Cancelled"
+  | "Expired";
   date: string;
   pickupDate?: string;
   notes?: string;
+  rejectionReason?: string;
   refNumber: string;
+  reservationCode?: string;
+  expiresAt?: string;
+  paidAt?: string;
   quantity: number;
   totalPrice?: number;
 }
@@ -100,9 +107,24 @@ interface AppContextType {
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
   register: (name: string, email: string, password: string, phone: string, location?: string) => Promise<boolean>;
-  createReservation: (medicine: Medicine, qty: number, pickupDate: string, notes: string) => Promise<Reservation | null>;
+  createReservation: (
+    medicine: Medicine,
+    qty: number,
+    pickupDate: string,
+    notes: string,
+    paymentMethod?: "PAYSTACK" | "CASH"
+  ) => Promise<Reservation | null>;
   approveReservation: (id: string) => Promise<void>;
-  updateFulfillmentAndPayment: (id: string, fulfillmentMethod: "Pickup" | "Delivery", paymentMethod: string, address?: string) => Promise<void>;
+  updateFulfillmentAndPayment: (
+    id: string,
+    fulfillmentMethod: "Pickup" | "Delivery",
+    paymentMethod: string,
+    address?: string
+  ) => Promise<void>;
+  initializePaystackPayment: (
+    reservationId: string | number
+  ) => Promise<{ authorization_url: string; reference: string; is_mock: boolean }>;
+  verifyPaystackPayment: (reference: string) => Promise<boolean>;
   markReservationPaid: (id: string) => Promise<void>;
   advanceReservationStatus: (id: string) => Promise<void>;
   cancelReservation: (id: string) => Promise<void>;
@@ -123,6 +145,8 @@ const mapStatus = (status: string | undefined): Reservation["status"] => {
     case "Approved":
     case "Confirmed":
       return "Approved";
+    case "Reserved":
+      return "Reserved";
     case "Paid":
       return "Paid";
     case "Ready":
@@ -141,6 +165,8 @@ const mapStatus = (status: string | undefined): Reservation["status"] => {
     case "Cancelled":
     case "Rejected":
       return "Cancelled";
+    case "Expired":
+      return "Expired";
     default:
       return "Pending Pharmacy Review";
   }
@@ -158,6 +184,8 @@ const transformBackendReservation = (
   const medicineId = firstItem ? String(firstItem.medicine_id) : "1";
   const quantity = firstItem ? firstItem.quantity : 1;
 
+  const resCode = br.reservation_code || br.ref_number || `MF-${br.id}`;
+
   return {
     id: String(br.id),
     rawId: br.id,
@@ -168,16 +196,22 @@ const transformBackendReservation = (
     fulfillmentMethod: (br.fulfillment_method === "Delivery" ? "Delivery" : "Pickup") as "Pickup" | "Delivery",
     fulfillmentAddress: br.fulfillment_address,
     fulfillmentTime: br.fulfillment_time,
-    paymentMethod: br.payment_preference,
+    paymentMethod: br.payment_method || (br.payment_preference === "Pay Online" ? "PAYSTACK" : br.payment_preference === "Pay at Pharmacy" || br.payment_preference === "Pay on Delivery" ? "CASH" : undefined),
+    paymentStatus: br.payment_status || "UNPAID",
     status: mapStatus(br.status),
     date: br.date ? new Date(br.date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
     pickupDate: br.fulfillment_time,
     notes: br.notes,
-    refNumber: br.ref_number || `MF-${br.id}`,
+    rejectionReason: br.rejection_reason || undefined,
+    refNumber: br.ref_number || resCode,
+    reservationCode: resCode,
+    expiresAt: br.expires_at,
+    paidAt: br.paid_at,
     quantity,
     totalPrice: br.total_price,
   };
 };
+
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -556,7 +590,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     medicine: Medicine,
     qty: number,
     pickupDate: string,
-    notes: string
+    notes: string,
+    paymentMethod?: "PAYSTACK" | "CASH"
   ): Promise<Reservation | null> => {
     try {
       const pharmacyIdNum = parseInt(medicine.pharmacyId.replace(/\D/g, "") || "1", 10) || 1;
@@ -568,6 +603,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         fulfillment_time: pickupDate,
         notes: notes || undefined,
         fulfillment_method: "Pickup",
+        payment_method: paymentMethod || undefined,
+        payment_preference: paymentMethod ? (paymentMethod === "PAYSTACK" ? "Pay Online" : "Pay at Pharmacy") : undefined,
       });
 
       const transformed = transformBackendReservation(created, pharmacies);
@@ -576,6 +613,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (err) {
       console.error("Failed to create reservation:", err);
       throw err;
+    }
+  };
+
+  const initializePaystackPayment = async (
+    reservationId: string | number
+  ): Promise<{ authorization_url: string; reference: string; is_mock: boolean }> => {
+    const numId = typeof reservationId === "string" ? parseInt(reservationId.replace(/\D/g, ""), 10) : reservationId;
+    const res = await api.initializePayment(numId);
+    return {
+      authorization_url: res.authorization_url,
+      reference: res.reference,
+      is_mock: res.is_mock,
+    };
+  };
+
+  const verifyPaystackPayment = async (reference: string): Promise<boolean> => {
+    try {
+      const res = await api.verifyPayment(reference);
+      if (res.status === "Success" || res.payment_status === "PAID") {
+        await refreshReservations();
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error("Error verifying Paystack payment:", err);
+      return false;
     }
   };
 
@@ -618,7 +681,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           return {
             ...reservation,
             fulfillmentMethod,
-            paymentMethod,
+            paymentMethod: paymentMethod === "Pay Online" ? "PAYSTACK" : "CASH",
+            paymentStatus: paymentMethod === "Pay Online" ? "PAID" : "UNPAID",
             fulfillmentAddress: address || reservation.fulfillmentAddress,
             status: nextStatus,
           };
@@ -637,7 +701,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch { }
 
     setReservations((prev) =>
-      prev.map((res) => (res.id === id ? { ...res, status: "Paid" } : res))
+      prev.map((res) => (res.id === id ? { ...res, status: "Paid", paymentStatus: "PAID" } : res))
     );
   };
 
@@ -713,6 +777,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         createReservation,
         approveReservation,
         updateFulfillmentAndPayment,
+        initializePaystackPayment,
+        verifyPaystackPayment,
         markReservationPaid,
         advanceReservationStatus,
         cancelReservation,
@@ -732,3 +798,4 @@ export const useApp = () => {
   if (!context) throw new Error("useApp must be used within an AppProvider");
   return context;
 };
+

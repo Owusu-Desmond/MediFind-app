@@ -13,16 +13,16 @@ export default function PaymentPreferenceScreen() {
   const isDelivery = fulfillmentMethod === "Delivery";
   
   const paymentOptions = isDelivery ? [
-    { title: "Pay Online", desc: "Pay securely using Paystack (Mobile Money or Card).", value: "Pay Online" as const, icon: "card-outline" },
-    { title: "Pay on Delivery", desc: "Pay when the medicine is delivered to you.", value: "Pay on Delivery" as const, icon: "cash-outline" },
+    { title: "Pay Online with Paystack", desc: "Pay securely with Mobile Money (MTN, Telecel, AT) or Card.", value: "Pay Online" as const, icon: "card-outline" },
+    { title: "Pay on Delivery", desc: "Pay cash directly when the medicine is delivered.", value: "Pay on Delivery" as const, icon: "cash-outline" },
   ] : [
-    { title: "Pay Online", desc: "Pay securely using Paystack (Mobile Money or Card).", value: "Pay Online" as const, icon: "card-outline" },
-    { title: "Pay at Pharmacy", desc: "Pay when you collect the medicine.", value: "Pay at Pharmacy" as const, icon: "cash-outline" },
+    { title: "Pay Online with Paystack", desc: "Pay securely with Mobile Money (MTN, Telecel, AT) or Card.", value: "Pay Online" as const, icon: "card-outline" },
+    { title: "Pay at Pharmacy", desc: "Pay cash at the pharmacy counter upon pickup.", value: "Pay at Pharmacy" as const, icon: "cash-outline" },
   ];
 
   const [payment, setPayment] = useState<string>("Pay Online");
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (!reservationId || !fulfillmentMethod) return;
 
     if (isDelivery) {
@@ -33,15 +33,19 @@ export default function PaymentPreferenceScreen() {
     } else {
       if (payment === "Pay Online") {
         router.push({
-          pathname: "/reservation/mock-paystack",
+          pathname: "/reservation/paystack-checkout",
           params: { reservationId, fulfillmentMethod },
         } as never);
       } else {
-        updateFulfillmentAndPayment(reservationId, fulfillmentMethod, payment);
-        router.push("/(tabs)/reservations" as never);
+        await updateFulfillmentAndPayment(reservationId, fulfillmentMethod, payment);
+        router.replace({
+          pathname: "/reservation/status-timeline",
+          params: { reservationId },
+        } as never);
       }
     }
   };
+
 
   return (
     <SafeAreaView className="flex-1 bg-slate-50" edges={["top"]}>

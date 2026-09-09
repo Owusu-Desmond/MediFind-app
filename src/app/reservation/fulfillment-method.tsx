@@ -1,13 +1,26 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { View, Text, TouchableOpacity, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useApp } from "@/context/AppContext";
 
 export default function FulfillmentMethodScreen() {
   const [fulfillment, setFulfillment] = React.useState<"Pickup" | "Delivery">("Pickup");
   const { reservationId } = useLocalSearchParams<{ reservationId?: string }>();
+  const { reservations } = useApp();
   const router = useRouter();
+
+  const reservation = reservations.find((r) => r.id === reservationId);
+
+  useEffect(() => {
+    if (reservation?.paymentStatus === "PAID" || reservation?.status === "Paid") {
+      router.replace({
+        pathname: "/reservation/status-timeline",
+        params: { reservationId },
+      } as never);
+    }
+  }, [reservationId, reservation?.paymentStatus, reservation?.status]);
 
   return (
     <SafeAreaView className="flex-1 bg-slate-50" edges={["top"]}>
