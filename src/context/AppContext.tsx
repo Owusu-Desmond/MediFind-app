@@ -128,7 +128,9 @@ interface AppContextType {
   markReservationPaid: (id: string) => Promise<void>;
   advanceReservationStatus: (id: string) => Promise<void>;
   cancelReservation: (id: string) => Promise<void>;
-  refreshReservations: () => Promise<void>;
+  clearReservation: (id: string) => Promise<void>;
+  clearAllFinishedReservations: () => Promise<void>;
+  refreshReservations: (currentPharmacies?: Pharmacy[]) => Promise<void>;
   refreshData: () => Promise<void>;
   savedPharmacies: string[];
   toggleSavePharmacy: (id: string) => void;
@@ -199,7 +201,7 @@ const transformBackendReservation = (
     paymentMethod: br.payment_method || (br.payment_preference === "Pay Online" ? "PAYSTACK" : br.payment_preference === "Pay at Pharmacy" || br.payment_preference === "Pay on Delivery" ? "CASH" : undefined),
     paymentStatus: br.payment_status || "UNPAID",
     status: mapStatus(br.status),
-    date: br.date ? new Date(br.date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
+    date: br.date ? new Date(br.date).toISOString() : new Date().toISOString(),
     pickupDate: br.fulfillment_time,
     notes: br.notes,
     rejectionReason: br.rejection_reason || undefined,
@@ -218,6 +220,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [pharmacies, setPharmacies] = useState<Pharmacy[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [clearedReservationIds, setClearedReservationIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [savedPharmacies, setSavedPharmacies] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -249,6 +252,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try {
         const storedUser = await AsyncStorage.getItem("mf_user_data");
         const storedSaved = await AsyncStorage.getItem("mf_saved_pharmacies");
+        const storedCleared = await AsyncStorage.getItem("mf_cleared_reservations");
 
         if (storedUser) {
           try {
@@ -259,6 +263,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (storedSaved) {
           try {
             setSavedPharmacies(JSON.parse(storedSaved));
+          } catch { }
+        }
+
+        if (storedCleared) {
+          try {
+            setClearedReservationIds(JSON.parse(storedCleared));
           } catch { }
         }
       } catch { }
@@ -513,7 +523,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const activePharmacies = currentPharmacies || pharmacies;
       const backendReservations = await api.getReservations();
       if (Array.isArray(backendReservations)) {
-        const transformed = backendReservations.map((br) => transformBackendReservation(br, activePharmacies));
+        let currentCleared = clearedReservationIds;
+        try {
+          const storedCleared = await AsyncStorage.getItem("mf_cleared_reservations");
+          if (storedCleared) currentCleared = JSON.parse(storedCleared);
+        } catch { }
+
+        const transformed = backendReservations
+          .filter((br) => !currentCleared.includes(String(br.id)))
+          .map((br) => transformBackendReservation(br, activePharmacies));
         setReservations(transformed);
       } else {
         setReservations([]);
@@ -523,7 +541,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } finally {
       setLoading(false);
     }
-  }, [pharmacies]);
+  }, [pharmacies, clearedReservationIds]);
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
@@ -752,6 +770,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
+  const clearReservation = async (id: string) => {
+    const updatedCleared = [...new Set([...clearedReservationIds, String(id)])];
+    setClearedReservationIds(updatedCleared);
+    await AsyncStorage.setItem("mf_cleared_reservations", JSON.stringify(updatedCleared));
+    setReservations((prev) => prev.filter((r) => r.id !== String(id)));
+
+    try {
+      const numericId = parseInt(id.replace(/\D/g, ""), 10);
+      if (!isNaN(numericId)) {
+        await api.clearReservation(numericId);
+      }
+    } catch (err) {
+      console.error("Failed to sync cleared reservation to backend:", err);
+    }
+  };
+
+  const clearAllFinishedReservations = async () => {
+    const finishedIds = reservations
+      .filter((r) => ["Delivered", "Collected", "Cancelled", "Expired"].includes(r.status))
+      .map((r) => String(r.id));
+    if (finishedIds.length === 0) return;
+    const updatedCleared = [...new Set([...clearedReservationIds, ...finishedIds])];
+    setClearedReservationIds(updatedCleared);
+    await AsyncStorage.setItem("mf_cleared_reservations", JSON.stringify(updatedCleared));
+    setReservations((prev) => prev.filter((r) => !finishedIds.includes(String(r.id))));
+
+    try {
+      await api.clearFinishedReservations();
+    } catch (err) {
+      console.error("Failed to sync cleared finished reservations to backend:", err);
+    }
+  };
+
   const toggleSavePharmacy = (id: string) => {
     setSavedPharmacies((prev) =>
       prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]
@@ -782,6 +833,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         markReservationPaid,
         advanceReservationStatus,
         cancelReservation,
+        clearReservation,
+        clearAllFinishedReservations,
         refreshReservations,
         refreshData,
         savedPharmacies,

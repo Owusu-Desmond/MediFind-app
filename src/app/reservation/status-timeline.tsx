@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useApp } from "@/context/AppContext";
+import { formatReservationDateTime } from "@/utils/date";
 
 export default function StatusTimelineScreen() {
   const router = useRouter();
@@ -170,6 +171,13 @@ export default function StatusTimelineScreen() {
 
               {/* Payment Details Grid */}
               <View className="pt-4 grid grid-cols-2 gap-y-3">
+                <View className="flex-row justify-between items-center">
+                  <Text className="text-xs text-slate-400 font-semibold">Reserved At:</Text>
+                  <Text className="text-xs font-bold text-slate-700">
+                    {formatReservationDateTime(reservation.date)}
+                  </Text>
+                </View>
+
                 <View className="flex-row justify-between items-center">
                   <Text className="text-xs text-slate-400 font-semibold">Payment Method:</Text>
                   <Text className="text-xs font-bold text-slate-700">

@@ -1,8 +1,24 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
+import Constants from "expo-constants";
 
-const DEFAULT_API_URL = Platform.OS === "android" ? "http://10.0.2.2:8000" : "http://127.0.0.1:8000";
-export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || DEFAULT_API_URL;
+function getBaseUrl(): string {
+  // If explicitly provided via .env
+  if (process.env.EXPO_PUBLIC_API_URL) {
+    return process.env.EXPO_PUBLIC_API_URL;
+  }
+  // Automatically extract current Metro bundler host IP
+  const hostUri = Constants.expoConfig?.hostUri;
+  if (hostUri) {
+    const hostIp = hostUri.split(":")[0];
+    if (hostIp) {
+      return `http://${hostIp}:8000`;
+    }
+  }
+  return Platform.OS === "android" ? "http://10.0.2.2:8000" : "http://127.0.0.1:8000";
+}
+
+export const API_BASE_URL = getBaseUrl();
 
 const TOKEN_KEY = "mf_access_token";
 const USER_KEY = "mf_user_data";
@@ -136,6 +152,7 @@ export interface BackendReservation {
   paid_at?: string;
   payment_verified_at?: string;
   cash_payment_confirmed_at?: string;
+  is_hidden_by_patient?: boolean;
   pharmacy?: BackendPharmacy;
   patient?: BackendUser;
   items: BackendReservationItem[];
@@ -243,6 +260,18 @@ export const api = {
       url += `?reason=${encodeURIComponent(reason)}`;
     }
     return fetchApi<BackendReservation>(url, {
+      method: "POST",
+    });
+  },
+
+  async clearReservation(id: number | string) {
+    return fetchApi<BackendReservation>(`/api/reservations/${id}/clear`, {
+      method: "POST",
+    });
+  },
+
+  async clearFinishedReservations() {
+    return fetchApi<{ success: boolean; cleared_count: number }>("/api/reservations/clear-finished", {
       method: "POST",
     });
   },

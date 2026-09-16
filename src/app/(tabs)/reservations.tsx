@@ -5,13 +5,13 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  RefreshControl,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useApp, Reservation } from "@/context/AppContext";
-
-import { RefreshControl } from "react-native";
+import { formatReservationDateTime, formatRelativeTime } from "@/utils/date";
 
 const STATUS_TABS = ["All", "Pending Pharmacy Review", "Approved", "Paid", "In Progress", "Completed", "Cancelled"] as const;
 
@@ -30,13 +30,22 @@ const reservationGroup = (status: Reservation["status"]) => {
     case "Collected":
       return "Completed";
     case "Cancelled":
+    case "Expired":
       return "Cancelled";
+    default:
+      return "Pending Pharmacy Review";
   }
 };
 
 export default function ReservationsScreen() {
   const router = useRouter();
-  const { reservations, cancelReservation, markReservationPaid, advanceReservationStatus, approveReservation, refreshReservations, loading } = useApp();
+  const {
+    reservations,
+    cancelReservation,
+    clearReservation,
+    clearAllFinishedReservations,
+    refreshReservations,
+  } = useApp();
   const [activeTab, setActiveTab] = useState<string>("All");
   const [refreshing, setRefreshing] = useState(false);
 
@@ -49,6 +58,11 @@ export default function ReservationsScreen() {
   const filtered = activeTab === "All"
     ? reservations
     : reservations.filter((r) => reservationGroup(r.status) === activeTab);
+
+  const clearableReservations = reservations.filter((r) =>
+    ["Delivered", "Collected", "Cancelled", "Expired"].includes(r.status)
+  );
+  const hasClearable = clearableReservations.length > 0;
 
   const statusConfig = (status: Reservation["status"]) => {
     switch (status) {
@@ -70,6 +84,8 @@ export default function ReservationsScreen() {
         return { bg: "bg-blue-50", border: "border-blue-100", text: "text-blue-700", icon: "bag-check-outline" as const, dot: "bg-blue-500" };
       case "Cancelled":
         return { bg: "bg-red-50", border: "border-red-100", text: "text-red-600", icon: "close-circle-outline" as const, dot: "bg-red-500" };
+      case "Expired":
+        return { bg: "bg-stone-100", border: "border-stone-200", text: "text-stone-700", icon: "timer-outline" as const, dot: "bg-stone-500" };
       default:
         return { bg: "bg-teal-50", border: "border-teal-100", text: "text-teal-700", icon: "receipt-outline" as const, dot: "bg-teal-500" };
     }
@@ -86,6 +102,28 @@ export default function ReservationsScreen() {
     );
   };
 
+  const handleClearSingle = (id: string, name: string) => {
+    Alert.alert(
+      "Clear Reservation",
+      `Remove reservation for "${name}" from your list?`,
+      [
+        { text: "Keep", style: "cancel" },
+        { text: "Clear", style: "destructive", onPress: () => clearReservation(id) },
+      ]
+    );
+  };
+
+  const handleClearAllFinished = () => {
+    Alert.alert(
+      "Clear Finished Reservations",
+      "Remove all delivered, collected, cancelled, and expired reservations from your list?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Clear All", style: "destructive", onPress: () => clearAllFinishedReservations() },
+      ]
+    );
+  };
+
   const handleCompleteOptions = (reservation: Reservation) => {
     router.push({
       pathname: "/reservation/fulfillment-method",
@@ -93,24 +131,33 @@ export default function ReservationsScreen() {
     } as never);
   };
 
-  const handleAdvance = (reservation: Reservation) => {
-    advanceReservationStatus(reservation.id);
-  };
-
   return (
     <SafeAreaView className="flex-1 bg-slate-50" edges={["top"]}>
       {/* Header */}
-      <View className="px-6 pt-4 pb-2">
-        <Text className="text-2xl font-bold text-slate-800">My Reservations</Text>
-        <Text className="text-xs text-slate-400 font-semibold mt-1">
-          Track and manage your medicine reservations
-        </Text>
+      <View className="px-6 pt-4 pb-2 flex-row items-center justify-between">
+        <View className="flex-1 pr-2">
+          <Text className="text-2xl font-bold text-slate-800">My Reservations</Text>
+          <Text className="text-xs text-slate-400 font-semibold mt-1">
+            Track and manage your medicine reservations
+          </Text>
+        </View>
+        {hasClearable && (
+          <TouchableOpacity
+            onPress={handleClearAllFinished}
+            className="flex-row items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 rounded-2xl shadow-xs active:bg-slate-100"
+          >
+            <Ionicons name="trash-outline" size={14} color="#64748b" />
+            <Text className="text-[11px] font-bold text-slate-600">Clear Finished</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Status Tabs */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} className="px-4 mt-3 mb-2" contentContainerStyle={{ paddingRight: 16 }}>
         {STATUS_TABS.map((tab) => {
-          const count = tab === "All" ? reservations.length : reservations.filter((r) => reservationGroup(r.status) === tab).length;
+          const count = tab === "All"
+            ? reservations.length
+            : reservations.filter((r) => reservationGroup(r.status) === tab).length;
           return (
             <TouchableOpacity
               key={tab}
@@ -164,13 +211,15 @@ export default function ReservationsScreen() {
         ) : (
           filtered.map((res) => {
             const sc = statusConfig(res.status);
+            const isClearable = ["Delivered", "Collected", "Cancelled", "Expired"].includes(res.status);
+
             return (
               <View
                 key={res.id}
                 className="bg-white rounded-3xl p-5 mb-3 border border-slate-100 shadow-sm"
               >
                 {/* Top row */}
-                <View className="flex-row items-start justify-between mb-3">
+                <View className="flex-row items-start justify-between mb-2">
                   <View className="flex-1 pr-3">
                     <Text className="text-base font-bold text-slate-800" numberOfLines={1}>
                       {res.medicineName}
@@ -183,6 +232,19 @@ export default function ReservationsScreen() {
                     <View className={`w-1.5 h-1.5 rounded-full ${sc.dot}`} />
                     <Text className={`text-[10px] font-bold ${sc.text}`}>{res.status}</Text>
                   </View>
+                </View>
+
+                {/* Date and Time row */}
+                <View className="flex-row items-center gap-1.5 mb-3 bg-slate-50/80 px-2.5 py-1.5 rounded-xl self-start border border-slate-100">
+                  <Ionicons name="calendar-outline" size={12} color="#64748b" />
+                  <Text className="text-[11px] font-semibold text-slate-600">
+                    {formatReservationDateTime(res.date)}
+                  </Text>
+                  {formatRelativeTime(res.date) ? (
+                    <Text className="text-[10px] font-bold text-slate-400 ml-1">
+                      ({formatRelativeTime(res.date)})
+                    </Text>
+                  ) : null}
                 </View>
 
                 {/* Info grid */}
@@ -305,7 +367,6 @@ export default function ReservationsScreen() {
                   </View>
                 )}
 
-
                 {(res.status === "Delivered" || res.status === "Collected") && (
                   <View className="mt-4">
                     <View className="bg-emerald-50 border border-emerald-100 rounded-2xl p-3 flex-row items-center gap-2">
@@ -316,31 +377,51 @@ export default function ReservationsScreen() {
                           : "Your medicine has been collected."}
                       </Text>
                     </View>
-                    <TouchableOpacity
-                      onPress={() => router.push({ pathname: "/reservation/status-timeline", params: { reservationId: res.id } } as never)}
-                      className="mt-3 flex-row items-center justify-center gap-1.5 border border-slate-200 py-3 rounded-2xl"
-                    >
-                      <Ionicons name="receipt-outline" size={16} color="#0f766e" />
-                      <Text className="text-primary text-xs font-bold">View Status Timeline</Text>
-                    </TouchableOpacity>
+                    <View className="flex-row items-center gap-2 mt-3">
+                      <TouchableOpacity
+                        onPress={() => router.push({ pathname: "/reservation/status-timeline", params: { reservationId: res.id } } as never)}
+                        className="flex-1 flex-row items-center justify-center gap-1.5 border border-slate-200 py-3 rounded-2xl bg-white"
+                      >
+                        <Ionicons name="receipt-outline" size={16} color="#0f766e" />
+                        <Text className="text-primary text-xs font-bold">View Timeline</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => handleClearSingle(res.id, res.medicineName)}
+                        className="flex-row items-center justify-center gap-1.5 border border-slate-200 bg-slate-50 py-3 px-4 rounded-2xl"
+                      >
+                        <Ionicons name="trash-outline" size={16} color="#64748b" />
+                        <Text className="text-slate-600 text-xs font-bold">Clear</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 )}
 
-                {res.status === "Cancelled" && (
-                  <View className="bg-red-50 border border-red-100 rounded-2xl p-3 mt-4 gap-1">
-                    <View className="flex-row items-center gap-2">
-                      <Ionicons name="close-circle" size={18} color="#dc2626" />
-                      <Text className="text-red-700 text-xs font-bold flex-1">
-                        This reservation was cancelled.
-                      </Text>
-                    </View>
-                    {res.rejectionReason && (
-                      <View className="ml-6 bg-red-100/50 rounded-xl px-2.5 py-1.5 mt-0.5">
-                        <Text className="text-red-800 text-[11px] font-semibold leading-relaxed">
-                          Reason: {res.rejectionReason}
+                {(res.status === "Cancelled" || res.status === "Expired") && (
+                  <View className="mt-4">
+                    <View className="bg-red-50 border border-red-100 rounded-2xl p-3 gap-1">
+                      <View className="flex-row items-center gap-2">
+                        <Ionicons name="close-circle" size={18} color="#dc2626" />
+                        <Text className="text-red-700 text-xs font-bold flex-1">
+                          {res.status === "Expired"
+                            ? "This reservation has expired."
+                            : "This reservation was cancelled."}
                         </Text>
                       </View>
-                    )}
+                      {res.rejectionReason && (
+                        <View className="ml-6 bg-red-100/50 rounded-xl px-2.5 py-1.5 mt-0.5">
+                          <Text className="text-red-800 text-[11px] font-semibold leading-relaxed">
+                            Reason: {res.rejectionReason}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => handleClearSingle(res.id, res.medicineName)}
+                      className="mt-2.5 flex-row items-center justify-center gap-1.5 border border-red-200 bg-red-50/40 py-2.5 rounded-2xl"
+                    >
+                      <Ionicons name="trash-outline" size={15} color="#dc2626" />
+                      <Text className="text-red-600 text-xs font-bold">Clear from History</Text>
+                    </TouchableOpacity>
                   </View>
                 )}
               </View>
@@ -351,3 +432,4 @@ export default function ReservationsScreen() {
     </SafeAreaView>
   );
 }
+
