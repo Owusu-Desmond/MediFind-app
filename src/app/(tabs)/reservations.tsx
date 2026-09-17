@@ -153,41 +153,49 @@ export default function ReservationsScreen() {
       </View>
 
       {/* Status Tabs */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} className="px-4 mt-3 mb-2" contentContainerStyle={{ paddingRight: 16 }}>
-        {STATUS_TABS.map((tab) => {
-          const count = tab === "All"
-            ? reservations.length
-            : reservations.filter((r) => reservationGroup(r.status) === tab).length;
-          return (
-            <TouchableOpacity
-              key={tab}
-              onPress={() => setActiveTab(tab)}
-              className={`mr-2 px-4 py-2 rounded-2xl flex-row items-center gap-1.5 border ${activeTab === tab
-                ? "bg-primary border-primary"
-                : "bg-white border-slate-200"
-                }`}
-            >
-              <Text
-                className={`text-xs font-bold ${activeTab === tab ? "text-white" : "text-slate-600"
-                  }`}
-              >
-                {tab}
-              </Text>
-              <View
-                className={`px-1.5 py-0.5 rounded-full min-w-[18px] items-center ${activeTab === tab ? "bg-white/20" : "bg-slate-100"
+      <View className="h-12 my-2">
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          className="px-4"
+          contentContainerStyle={{ paddingRight: 24, alignItems: "center" }}
+          style={{ flexGrow: 0 }}
+        >
+          {STATUS_TABS.map((tab) => {
+            const count = tab === "All"
+              ? reservations.length
+              : reservations.filter((r) => reservationGroup(r.status) === tab).length;
+            return (
+              <TouchableOpacity
+                key={tab}
+                onPress={() => setActiveTab(tab)}
+                className={`mr-2 px-4 py-2 rounded-2xl flex-row items-center gap-1.5 border ${activeTab === tab
+                  ? "bg-primary border-primary"
+                  : "bg-white border-slate-200"
                   }`}
               >
                 <Text
-                  className={`text-[9px] font-bold ${activeTab === tab ? "text-white" : "text-slate-500"
+                  className={`text-xs font-bold ${activeTab === tab ? "text-white" : "text-slate-600"
                     }`}
                 >
-                  {count}
+                  {tab}
                 </Text>
-              </View>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+                <View
+                  className={`px-1.5 py-0.5 rounded-full min-w-[18px] items-center ${activeTab === tab ? "bg-white/20" : "bg-slate-100"
+                    }`}
+                >
+                  <Text
+                    className={`text-[9px] font-bold ${activeTab === tab ? "text-white" : "text-slate-500"
+                      }`}
+                  >
+                    {count}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
 
       {/* Reservations List */}
       <ScrollView
