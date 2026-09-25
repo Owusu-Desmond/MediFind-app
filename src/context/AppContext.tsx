@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { api, getStoredToken, BackendReservation, BackendMedicine, BackendPharmacy, BackendUser } from "@/services/api";
 import { Coordinates, calculateDistance, formatDistance } from "@/utils/distance";
+import { isPharmacyOpen } from "@/utils/date";
 import {
   LocationPermissionStatus,
   requestLocationPermission,
@@ -387,8 +388,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               distanceKm: distKm,
               rating: 4.8,
               reviews: 24,
-              isOpen: true,
-              openHours: bp.opening_hours || "Mon–Sat: 8am – 9pm",
+              isOpen: bp.is_open !== undefined ? bp.is_open : isPharmacyOpen(bp.opening_hours),
+              openHours: bp.opening_hours || "8:00 AM - 9:00 PM",
               phone: bp.phone || "+233 24 000 0000",
               verified: bp.verified ?? true,
               lat: bp.lat,

@@ -70,8 +70,8 @@ export default function SelectPharmacyScreen() {
                   </View>
                   <Text className="text-slate-500 text-xs mt-1">{pharmacy.distance} · {pharmacy.rating} rating</Text>
                 </View>
-                <View className={`px-2.5 py-1 rounded-full ${pharmacy.isOpen ? "bg-emerald-50" : "bg-red-50"}`}>
-                  <Text className={`text-[10px] font-bold ${pharmacy.isOpen ? "text-emerald-700" : "text-red-700"}`}>{pharmacy.isOpen ? "Open" : "Closed"}</Text>
+                <View className={`px-2.5 py-1 rounded-full ${pharmacy.isOpen ? "bg-emerald-50 border border-emerald-100" : "bg-red-50 border border-red-100"}`}>
+                  <Text className={`text-[10px] font-bold ${pharmacy.isOpen ? "text-emerald-700" : "text-red-700"}`}>{pharmacy.isOpen ? "Open Now" : "Closed"}</Text>
                 </View>
               </View>
             </TouchableOpacity>

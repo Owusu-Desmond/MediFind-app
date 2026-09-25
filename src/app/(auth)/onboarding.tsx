@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, TouchableOpacity, ScrollView } from "react-native";
+import { View, Text, TouchableOpacity, ScrollView, Image } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -32,9 +32,11 @@ export default function OnboardingScreen() {
           <View>
             <View className="flex-row items-center justify-between mb-6">
               <View className="flex-row items-center gap-3">
-                <View className="w-12 h-12 rounded-2xl bg-primary items-center justify-center">
-                  <Ionicons name="medical" size={24} color="white" />
-                </View>
+                <Image
+                  source={require("../../../assets/logo.png")}
+                  style={{ width: 44, height: 44, borderRadius: 14 }}
+                  resizeMode="contain"
+                />
                 <View>
                   <Text className="text-slate-900 text-2xl font-bold">MediFind</Text>
                   <Text className="text-slate-500 text-[10px] font-bold uppercase tracking-[0.2em]">
@@ -50,9 +52,11 @@ export default function OnboardingScreen() {
 
             <View className="bg-white rounded-[32px] p-6 border border-slate-200 shadow-sm">
               <View className="items-center mb-6">
-                <View className="w-24 h-24 rounded-[28px] bg-teal-50 items-center justify-center mb-4">
-                  <Ionicons name="medical" size={44} color="#0f766e" />
-                </View>
+                <Image
+                  source={require("../../../assets/logo.png")}
+                  style={{ width: 84, height: 84, borderRadius: 24, marginBottom: 16 }}
+                  resizeMode="contain"
+                />
                 <Text className="text-slate-900 text-3xl font-bold text-center leading-tight">
                   Find medicine faster.
                 </Text>

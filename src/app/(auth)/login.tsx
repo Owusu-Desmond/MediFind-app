@@ -8,6 +8,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, Link } from "expo-router";
@@ -55,9 +56,11 @@ export default function LoginScreen() {
 
               <View className="flex-row items-center justify-between mb-10">
                 <View className="flex-row items-center gap-3">
-                  <View className="w-12 h-12 rounded-2xl bg-white/20 items-center justify-center">
-                    <Ionicons name="medical" size={24} color="white" />
-                  </View>
+                  <Image
+                    source={require("../../../assets/logo.png")}
+                    style={{ width: 48, height: 48, borderRadius: 14 }}
+                    resizeMode="contain"
+                  />
                   <View>
                     <Text className="text-white text-2xl font-bold tracking-tight">MediFind</Text>
                     <Text className="text-white/60 text-[10px] font-bold uppercase tracking-widest">

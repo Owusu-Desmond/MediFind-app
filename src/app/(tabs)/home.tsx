@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   FlatList,
   RefreshControl,
+  Image,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -109,8 +110,12 @@ export default function HomeScreen() {
               in stock at {new Set(medicines.filter((m) => m.inStock).map((m) => m.pharmacyId)).size} pharmacies near you
             </Text>
           </View>
-          <View className="w-16 h-16 rounded-2xl bg-white/15 items-center justify-center">
-            <Ionicons name="medical" size={32} color="white" />
+          <View className="w-16 h-16 rounded-2xl bg-white/15 items-center justify-center overflow-hidden">
+            <Image
+              source={require("../../../assets/logo.png")}
+              style={{ width: 44, height: 44, borderRadius: 10 }}
+              resizeMode="contain"
+            />
           </View>
         </View>
 

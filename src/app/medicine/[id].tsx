@@ -146,10 +146,10 @@ export default function MedicineDetailScreen() {
                       <Ionicons name="location-outline" size={12} color="#64748b" />
                       <Text className="text-xs text-slate-500 font-semibold">{pharmacy.distance}</Text>
                     </View>
-                    <View className={`flex-row items-center gap-1 px-2 py-0.5 rounded-full ${pharmacy.isOpen ? "bg-emerald-50" : "bg-red-50"}`}>
+                    <View className={`flex-row items-center gap-1 px-2.5 py-0.5 rounded-full ${pharmacy.isOpen ? "bg-emerald-50 border border-emerald-100" : "bg-red-50 border border-red-100"}`}>
                       <View className={`w-1.5 h-1.5 rounded-full ${pharmacy.isOpen ? "bg-emerald-500" : "bg-red-500"}`} />
                       <Text className={`text-[10px] font-bold ${pharmacy.isOpen ? "text-emerald-700" : "text-red-700"}`}>
-                        {pharmacy.isOpen ? "Open" : "Closed"}
+                        {pharmacy.isOpen ? "Open Now" : "Closed"}
                       </Text>
                     </View>
                   </View>

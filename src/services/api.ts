@@ -106,6 +106,7 @@ export interface BackendPharmacy {
   lat?: number;
   lng?: number;
   verified: boolean;
+  is_open?: boolean;
 }
 
 export interface BackendMedicine {

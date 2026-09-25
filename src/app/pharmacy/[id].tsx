@@ -134,7 +134,7 @@ export default function PharmacyDetailScreen() {
                     {pharmacy.distance}
                   </Text>
                 </View>
-                <View className={`flex-row items-center gap-1 px-2 py-0.5 rounded-full ${pharmacy.isOpen ? "bg-emerald-500/30" : "bg-red-500/30"}`}>
+                <View className={`flex-row items-center gap-1 px-2.5 py-0.5 rounded-full ${pharmacy.isOpen ? "bg-emerald-500/30" : "bg-red-500/30"}`}>
                   <View className={`w-1.5 h-1.5 rounded-full ${pharmacy.isOpen ? "bg-emerald-400" : "bg-red-400"}`} />
                   <Text className={`text-[10px] font-bold ${pharmacy.isOpen ? "text-emerald-300" : "text-red-300"}`}>
                     {pharmacy.isOpen ? "Open Now" : "Closed"}
