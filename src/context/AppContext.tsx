@@ -46,6 +46,7 @@ export interface Pharmacy {
   openHours: string;
   phone: string;
   verified: boolean;
+  status?: string;
   lat?: number;
   lng?: number;
 }
@@ -371,31 +372,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       setLoading(true);
 
-      // 1. Fetch live Pharmacies from backend
+      // 1. Fetch live Pharmacies from backend (Approved only for patient app)
       let loadedPharmacies: Pharmacy[] = [];
       try {
-        const backendPharmacies = await api.getPharmacies();
+        const backendPharmacies = await api.getPharmacies("Approved");
         if (Array.isArray(backendPharmacies) && backendPharmacies.length > 0) {
-          loadedPharmacies = backendPharmacies.map((bp) => {
-            const distKm = userLocation
-              ? calculateDistance(userLocation.latitude, userLocation.longitude, bp.lat, bp.lng)
-              : null;
-            return {
-              id: String(bp.id),
-              name: bp.name,
-              address: bp.location,
-              distance: formatDistance(distKm),
-              distanceKm: distKm,
-              rating: 4.8,
-              reviews: 24,
-              isOpen: bp.is_open !== undefined ? bp.is_open : isPharmacyOpen(bp.opening_hours),
-              openHours: bp.opening_hours || "8:00 AM - 9:00 PM",
-              phone: bp.phone || "+233 24 000 0000",
-              verified: bp.verified ?? true,
-              lat: bp.lat,
-              lng: bp.lng,
-            };
-          });
+          loadedPharmacies = backendPharmacies
+            .filter((bp) => !bp.status || bp.status.toLowerCase() === "approved")
+            .map((bp) => {
+              const distKm = userLocation
+                ? calculateDistance(userLocation.latitude, userLocation.longitude, bp.lat, bp.lng)
+                : null;
+              return {
+                id: String(bp.id),
+                name: bp.name,
+                address: bp.location,
+                distance: formatDistance(distKm),
+                distanceKm: distKm,
+                rating: 4.8,
+                reviews: 24,
+                isOpen: bp.is_open !== undefined ? bp.is_open : isPharmacyOpen(bp.opening_hours),
+                openHours: bp.opening_hours || "8:00 AM - 9:00 PM",
+                phone: bp.phone || "+233 24 000 0000",
+                verified: bp.verified ?? true,
+                status: bp.status,
+                lat: bp.lat,
+                lng: bp.lng,
+              };
+            });
 
           // Sort closest first if location is available
           if (userLocation) {
@@ -423,7 +427,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         );
 
         if (Array.isArray(searchResults) && searchResults.length > 0) {
-          const transformedMeds: Medicine[] = searchResults.map((item) => {
+          const transformedMeds: Medicine[] = searchResults
+            .filter((item) => {
+              const pharma = item.pharmacy;
+              return pharma && (!pharma.status || pharma.status.toLowerCase() === "approved");
+            })
+            .map((item) => {
             const med = item.medicine;
             const pharma = item.pharmacy;
             const inv = item.inventory;

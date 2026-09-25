@@ -217,8 +217,9 @@ export const api = {
     }>>(url);
   },
 
-  async getPharmacies() {
-    return fetchApi<BackendPharmacy[]>("/api/pharmacies/");
+  async getPharmacies(status?: string) {
+    const url = status ? `/api/pharmacies/?status=${encodeURIComponent(status)}` : "/api/pharmacies/";
+    return fetchApi<BackendPharmacy[]>(url);
   },
 
   async getReservations() {
