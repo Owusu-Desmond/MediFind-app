@@ -38,6 +38,8 @@ export interface Medicine {
   sideEffects?: string;
   tags?: string;
   imageUrl?: string;
+  matchedBy?: string;
+  aliases?: string[];
 }
 
 export interface Pharmacy {
@@ -107,6 +109,7 @@ interface AppContextType {
   pharmacies: Pharmacy[];
   reservations: Reservation[];
   loading: boolean;
+  searchLoading: boolean;
   searchQuery: string;
   setSearchQuery: (q: string) => void;
   userLocation: Coordinates | null;
@@ -142,6 +145,7 @@ interface AppContextType {
   refreshData: () => Promise<void>;
   savedPharmacies: string[];
   toggleSavePharmacy: (id: string) => void;
+  searchLiveMedicines: (query: string, category?: string) => Promise<Medicine[]>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -226,10 +230,12 @@ const transformBackendReservation = (
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [medicines, setMedicines] = useState<Medicine[]>([]);
+  const [allMedicines, setAllMedicines] = useState<Medicine[]>([]);
   const [pharmacies, setPharmacies] = useState<Pharmacy[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [clearedReservationIds, setClearedReservationIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchLoading, setSearchLoading] = useState(false);
   const [savedPharmacies, setSavedPharmacies] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -251,6 +257,100 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return false;
     }
   };
+
+  const searchLiveMedicines = useCallback(
+    async (query: string, category?: string): Promise<Medicine[]> => {
+      try {
+        const searchResults = await api.searchMedicines(
+          query,
+          userLocation ? userLocation.latitude : undefined,
+          userLocation ? userLocation.longitude : undefined,
+          category
+        );
+
+        if (Array.isArray(searchResults)) {
+          const transformed: Medicine[] = searchResults
+            .filter((item) => {
+              const pharma = item.pharmacy;
+              return pharma && (!pharma.status || pharma.status.toLowerCase() === "approved");
+            })
+            .map((item) => {
+              const med = item.medicine;
+              const pharma = item.pharmacy;
+              const inv = item.inventory;
+              const distKm = userLocation
+                ? calculateDistance(userLocation.latitude, userLocation.longitude, pharma.lat, pharma.lng)
+                : (item.distance_km ?? null);
+
+              return {
+                id: `${med.id}-${pharma.id}`,
+                rawMedicineId: med.id,
+                name: med.name,
+                genericName: med.generic_name || med.name,
+                strength: med.strength || med.dosage || "",
+                dosageForm: med.dosage_form || "",
+                routeOfAdministration: med.route_of_administration || "",
+                category: med.therapeutic_category || med.category || "General",
+                therapeuticCategory: med.therapeutic_category || med.category || "General",
+                manufacturer: med.manufacturer || "",
+                requiresPrescription: !!med.requires_prescription,
+                inStock: (inv?.stock_quantity ?? 0) > 0,
+                price: inv?.price ?? 15.0,
+                pharmacy: pharma.name,
+                pharmacyId: String(pharma.id),
+                distance: formatDistance(distKm),
+                distanceKm: distKm,
+                rating: 4.8,
+                reviews: 18,
+                description: med.description || "",
+                dosage: med.dosage || med.strength || "",
+                dosageInstructions: med.dosage_instructions || "",
+                precautions: med.precautions || "",
+                sideEffects: med.side_effects || "",
+                tags: med.tags || "",
+                imageUrl: med.image_url || undefined,
+                matchedBy: med.matched_by,
+                aliases: med.aliases ? med.aliases.map((a) => a.alias) : [],
+              };
+            });
+
+          return transformed;
+        }
+        return [];
+      } catch {
+        return [];
+      }
+    },
+    [userLocation]
+  );
+
+  useEffect(() => {
+    const trimmed = searchQuery.trim();
+    if (!trimmed) {
+      setSearchLoading(false);
+      if (allMedicines.length > 0) {
+        setMedicines(allMedicines);
+      }
+      return;
+    }
+
+    setSearchLoading(true);
+    const timer = setTimeout(async () => {
+      try {
+        console.log(`[MediFind] Triggering live search for query: "${trimmed}"`);
+        const liveResults = await searchLiveMedicines(trimmed);
+        setMedicines(liveResults);
+      } catch (err) {
+        console.error("[MediFind] Live search failed:", err);
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 250);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [searchQuery, allMedicines, searchLiveMedicines]);
 
   // Initialize app, user, and start GPS location tracking
   useEffect(() => {
@@ -439,42 +539,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               return pharma && (!pharma.status || pharma.status.toLowerCase() === "approved");
             })
             .map((item) => {
-            const med = item.medicine;
-            const pharma = item.pharmacy;
-            const inv = item.inventory;
-            const distKm = userLocation
-              ? calculateDistance(userLocation.latitude, userLocation.longitude, pharma.lat, pharma.lng)
-              : (item.distance_km ?? null);
+              const med = item.medicine;
+              const pharma = item.pharmacy;
+              const inv = item.inventory;
+              const distKm = userLocation
+                ? calculateDistance(userLocation.latitude, userLocation.longitude, pharma.lat, pharma.lng)
+                : (item.distance_km ?? null);
 
-            return {
-              id: `${med.id}-${pharma.id}`,
-              rawMedicineId: med.id,
-              name: med.name,
-              genericName: med.generic_name || med.name,
-              strength: med.strength || med.dosage || "",
-              dosageForm: med.dosage_form || "",
-              routeOfAdministration: med.route_of_administration || "",
-              category: med.therapeutic_category || med.category || "General",
-              therapeuticCategory: med.therapeutic_category || med.category || "General",
-              manufacturer: med.manufacturer || "",
-              requiresPrescription: !!med.requires_prescription,
-              inStock: (inv?.stock_quantity ?? 0) > 0,
-              price: inv?.price ?? 15.0,
-              pharmacy: pharma.name,
-              pharmacyId: String(pharma.id),
-              distance: formatDistance(distKm),
-              distanceKm: distKm,
-              rating: 4.8,
-              reviews: 18,
-              description: med.description || "",
-              dosage: med.dosage || med.strength || "",
-              dosageInstructions: med.dosage_instructions || "",
-              precautions: med.precautions || "",
-              sideEffects: med.side_effects || "",
-              tags: med.tags || "",
-              imageUrl: med.image_url || undefined,
-            };
-          });
+              return {
+                id: `${med.id}-${pharma.id}`,
+                rawMedicineId: med.id,
+                name: med.name,
+                genericName: med.generic_name || med.name,
+                strength: med.strength || med.dosage || "",
+                dosageForm: med.dosage_form || "",
+                routeOfAdministration: med.route_of_administration || "",
+                category: med.therapeutic_category || med.category || "General",
+                therapeuticCategory: med.therapeutic_category || med.category || "General",
+                manufacturer: med.manufacturer || "",
+                requiresPrescription: !!med.requires_prescription,
+                inStock: (inv?.stock_quantity ?? 0) > 0,
+                price: inv?.price ?? 15.0,
+                pharmacy: pharma.name,
+                pharmacyId: String(pharma.id),
+                distance: formatDistance(distKm),
+                distanceKm: distKm,
+                rating: 4.8,
+                reviews: 18,
+                description: med.description || "",
+                dosage: med.dosage || med.strength || "",
+                dosageInstructions: med.dosage_instructions || "",
+                precautions: med.precautions || "",
+                sideEffects: med.side_effects || "",
+                tags: med.tags || "",
+                imageUrl: med.image_url || undefined,
+              };
+            });
 
           if (userLocation) {
             transformedMeds.sort((a, b) => {
@@ -484,6 +584,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             });
           }
 
+          setAllMedicines(transformedMeds);
           setMedicines(transformedMeds);
         } else {
           // Fallback to medicines catalog if search returned empty
@@ -522,8 +623,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               tags: med.tags || "",
               imageUrl: med.image_url || undefined,
             }));
+            setAllMedicines(transformedMeds);
             setMedicines(transformedMeds);
           } else {
+            setAllMedicines([]);
             setMedicines([]);
           }
         }
@@ -845,6 +948,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         pharmacies,
         reservations,
         loading,
+        searchLoading,
         searchQuery,
         setSearchQuery,
         userLocation,
@@ -867,6 +971,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         refreshData,
         savedPharmacies,
         toggleSavePharmacy,
+        searchLiveMedicines,
       }}
     >
       {children}

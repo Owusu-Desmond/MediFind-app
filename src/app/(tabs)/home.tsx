@@ -8,6 +8,7 @@ import {
   FlatList,
   RefreshControl,
   Image,
+  ActivityIndicator,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -25,7 +26,7 @@ const CATEGORIES = [
 ];
 
 export default function HomeScreen() {
-  const { user, medicines, searchQuery, setSearchQuery, refreshData } = useApp();
+  const { user, medicines, searchQuery, setSearchQuery, searchLoading, refreshData } = useApp();
   const router = useRouter();
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [refreshing, setRefreshing] = useState(false);
@@ -37,17 +38,8 @@ export default function HomeScreen() {
   };
 
   const filtered = medicines.filter((m) => {
-    const query = searchQuery.toLowerCase().trim();
-    const matchSearch =
-      !query ||
-      m.name.toLowerCase().includes(query) ||
-      (m.genericName && m.genericName.toLowerCase().includes(query)) ||
-      (m.description && m.description.toLowerCase().includes(query)) ||
-      (m.pharmacy && m.pharmacy.toLowerCase().includes(query));
-    const matchCategory =
-      selectedCategory === "All" ||
-      (m.category && m.category.toLowerCase() === selectedCategory.toLowerCase());
-    return matchSearch && matchCategory;
+    if (selectedCategory === "All") return true;
+    return m.category && m.category.toLowerCase() === selectedCategory.toLowerCase();
   });
 
   return (
@@ -68,25 +60,27 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Search Bar */}
+        {/* Search Bar with live searching indicator */}
         <View className="flex-row items-center bg-white border border-slate-200 rounded-2xl px-4 mt-4 shadow-sm">
-          <Ionicons name="search" size={18} color="#94a3b8" />
+          {searchLoading ? (
+            <ActivityIndicator size="small" color="#0f766e" />
+          ) : (
+            <Ionicons name="search" size={18} color="#94a3b8" />
+          )}
           <TextInput
             value={searchQuery}
             onChangeText={setSearchQuery}
-            placeholder="Search medicines, symptoms..."
+            placeholder="Search medicines, brands, symptoms..."
             placeholderTextColor="#94a3b8"
             className="flex-1 py-3.5 px-3 text-sm text-slate-800"
+            autoCapitalize="none"
+            autoCorrect={false}
           />
           {searchQuery ? (
-            <TouchableOpacity onPress={() => setSearchQuery("")}>
+            <TouchableOpacity onPress={() => setSearchQuery("")} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
               <Ionicons name="close-circle" size={18} color="#94a3b8" />
             </TouchableOpacity>
-          ) : (
-            <TouchableOpacity className="w-8 h-8 rounded-lg bg-primary items-center justify-center">
-              <Ionicons name="options" size={16} color="white" />
-            </TouchableOpacity>
-          )}
+          ) : null}
         </View>
       </View>
 
@@ -161,7 +155,12 @@ export default function HomeScreen() {
             <Text className="text-xs text-slate-400 font-semibold">Sorted by distance</Text>
           </View>
 
-          {filtered.length === 0 ? (
+          {searchLoading && filtered.length === 0 ? (
+            <View className="items-center py-16">
+              <ActivityIndicator size="large" color="#0f766e" />
+              <Text className="text-slate-500 font-bold text-sm mt-4">Searching medicines...</Text>
+            </View>
+          ) : filtered.length === 0 ? (
             <View className="items-center py-16">
               <Ionicons name="search-outline" size={48} color="#cbd5e1" />
               <Text className="text-slate-400 font-bold text-sm mt-4">No medicines found</Text>

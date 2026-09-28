@@ -109,6 +109,12 @@ export interface BackendPharmacy {
   is_open?: boolean;
 }
 
+export interface BackendMedicineAlias {
+  id: number;
+  alias: string;
+  alias_type?: string;
+}
+
 export interface BackendMedicine {
   id: number;
   name: string;
@@ -127,6 +133,8 @@ export interface BackendMedicine {
   precautions?: string;
   side_effects?: string;
   tags?: string;
+  matched_by?: string;
+  aliases?: BackendMedicineAlias[];
 }
 
 export interface BackendReservationItem {
@@ -209,15 +217,18 @@ export const api = {
     return fetchApi<BackendMedicine[]>("/api/medicines/");
   },
 
-  async searchMedicines(q: string, lat?: number, lng?: number) {
+  async searchMedicines(q: string, lat?: number, lng?: number, category?: string) {
     let url = `/api/medicines/search?q=${encodeURIComponent(q)}`;
     if (lat !== undefined && lng !== undefined) {
       url += `&lat=${lat}&lng=${lng}`;
     }
+    if (category && category !== "All") {
+      url += `&category=${encodeURIComponent(category)}`;
+    }
     return fetchApi<Array<{
       medicine: BackendMedicine;
       pharmacy: BackendPharmacy;
-      inventory: { id: number; price: number; stock_quantity: number; status: string };
+      inventory: { id: number; price: number; stock_quantity: number; status: string; is_available?: boolean };
       distance_km?: number;
     }>>(url);
   },
