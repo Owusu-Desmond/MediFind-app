@@ -65,7 +65,7 @@ export default function MedicineDetailScreen() {
       <StatusBar style="light" />
       <ScrollView showsVerticalScrollIndicator={false} className="bg-slate-50" contentContainerStyle={{ paddingBottom: 120 }}>
         {/* Header with back button */}
-        <View className="bg-primary pt-4 pb-10 px-6 rounded-b-[40px]">
+        <View className="bg-primary pt-4 pb-8 px-6 rounded-b-[36px]">
           <TouchableOpacity
             onPress={() => {
               if (router.canGoBack()) {
@@ -74,7 +74,7 @@ export default function MedicineDetailScreen() {
                 router.replace("/(tabs)/home");
               }
             }}
-            className="w-10 h-10 rounded-xl bg-white/20 items-center justify-center mb-6"
+            className="w-10 h-10 rounded-xl bg-white/20 items-center justify-center mb-5"
           >
             <Ionicons name="arrow-back" size={20} color="white" />
           </TouchableOpacity>
@@ -89,13 +89,30 @@ export default function MedicineDetailScreen() {
             )}
             <View className="flex-1">
               <Text className="text-white text-xl font-bold leading-tight">{medicine.name}</Text>
-              <Text className="text-white/60 text-xs font-semibold mt-1">{medicine.dosage || medicine.genericName}</Text>
-              <View className="flex-row items-center gap-2 mt-2">
-                <View className="bg-white/15 px-2.5 py-1 rounded-full">
-                  <Text className="text-white text-[10px] font-bold">{medicine.category}</Text>
+              {medicine.genericName && medicine.genericName !== medicine.name ? (
+                <Text className="text-teal-100 text-xs font-medium mt-0.5">
+                  Generic: <Text className="font-semibold">{medicine.genericName}</Text>
+                </Text>
+              ) : null}
+              
+              <View className="flex-row flex-wrap items-center gap-1.5 mt-2.5">
+                {medicine.requiresPrescription ? (
+                  <View className="bg-amber-400/90 px-2 py-0.5 rounded-full flex-row items-center gap-1">
+                    <Ionicons name="document-text" size={10} color="#78350f" />
+                    <Text className="text-amber-950 text-[10px] font-bold">Rx Only</Text>
+                  </View>
+                ) : (
+                  <View className="bg-emerald-400/90 px-2 py-0.5 rounded-full">
+                    <Text className="text-emerald-950 text-[10px] font-bold">OTC (No Rx)</Text>
+                  </View>
+                )}
+
+                <View className="bg-white/20 px-2 py-0.5 rounded-full">
+                  <Text className="text-white text-[10px] font-bold">{medicine.category || "General"}</Text>
                 </View>
-                <View className={`px-2.5 py-1 rounded-full ${medicine.inStock ? "bg-emerald-500/20" : "bg-red-500/20"}`}>
-                  <Text className={`text-[10px] font-bold ${medicine.inStock ? "text-emerald-300" : "text-red-300"}`}>
+
+                <View className={`px-2 py-0.5 rounded-full ${medicine.inStock ? "bg-emerald-500/30" : "bg-red-500/30"}`}>
+                  <Text className={`text-[10px] font-bold ${medicine.inStock ? "text-emerald-200" : "text-red-200"}`}>
                     {medicine.inStock ? "In Stock" : "Out of Stock"}
                   </Text>
                 </View>
@@ -104,26 +121,69 @@ export default function MedicineDetailScreen() {
           </View>
         </View>
 
-
-        {/* Price + Rating */}
-        <View className="mx-6 -mt-5 bg-white rounded-3xl p-5 border border-slate-100 shadow-sm flex-row items-center justify-between">
+        {/* Price + Rating Card */}
+        <View className="mx-6 -mt-4 bg-white rounded-3xl p-5 border border-slate-100 shadow-sm flex-row items-center justify-between">
           <View>
             <Text className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Price Per Unit</Text>
-            <Text className="text-2xl font-bold text-primary mt-1">GH₵{medicine.price.toFixed(2)}</Text>
+            <Text className="text-2xl font-bold text-primary mt-0.5">GH₵{medicine.price.toFixed(2)}</Text>
           </View>
           <View className="items-end">
             <View className="flex-row items-center gap-1">
               <Ionicons name="star" size={16} color="#f59e0b" />
               <Text className="text-lg font-bold text-slate-800">{medicine.rating}</Text>
             </View>
-            <Text className="text-[10px] text-slate-400 font-semibold">{medicine.reviews} reviews</Text>
+            <Text className="text-[10px] text-slate-400 font-semibold">{medicine.reviews} patient reviews</Text>
+          </View>
+        </View>
+
+        {/* Rx Requirement Notice Banner if Rx */}
+        {medicine.requiresPrescription && (
+          <View className="mx-6 mt-4 bg-amber-50 border border-amber-200/80 rounded-2xl p-4 flex-row items-start gap-3">
+            <Ionicons name="alert-circle" size={20} color="#b45309" className="mt-0.5" />
+            <View className="flex-1">
+              <Text className="text-amber-900 font-bold text-xs">Prescription Required</Text>
+              <Text className="text-amber-800 text-[11px] leading-relaxed mt-0.5">
+                A valid doctor&apos;s prescription must be presented or uploaded when collecting or receiving this medicine.
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Quick Facts / Medicine Specs Grid */}
+        <View className="mx-6 mt-4 bg-white rounded-3xl p-5 border border-slate-100 shadow-sm">
+          <Text className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-3">
+            Product Specifications
+          </Text>
+          <View className="grid grid-cols-2 gap-3">
+            <View className="flex-row items-center justify-between py-1.5 border-b border-slate-50">
+              <Text className="text-xs text-slate-500 font-medium">Strength</Text>
+              <Text className="text-xs font-bold text-slate-800">{medicine.strength || medicine.dosage || "Standard"}</Text>
+            </View>
+            {medicine.dosageForm ? (
+              <View className="flex-row items-center justify-between py-1.5 border-b border-slate-50">
+                <Text className="text-xs text-slate-500 font-medium">Dosage Form</Text>
+                <Text className="text-xs font-bold text-slate-800">{medicine.dosageForm}</Text>
+              </View>
+            ) : null}
+            {medicine.routeOfAdministration ? (
+              <View className="flex-row items-center justify-between py-1.5 border-b border-slate-50">
+                <Text className="text-xs text-slate-500 font-medium">Route</Text>
+                <Text className="text-xs font-bold text-slate-800">{medicine.routeOfAdministration}</Text>
+              </View>
+            ) : null}
+            {medicine.manufacturer ? (
+              <View className="flex-row items-center justify-between py-1.5">
+                <Text className="text-xs text-slate-500 font-medium">Manufacturer</Text>
+                <Text className="text-xs font-bold text-slate-800" numberOfLines={1}>{medicine.manufacturer}</Text>
+              </View>
+            ) : null}
           </View>
         </View>
 
         {/* Pharmacy Info */}
         {pharmacy && (
           <View className="mx-6 mt-4">
-            <Text className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 px-1">
+            <Text className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 px-1">
               Available At
             </Text>
             <TouchableOpacity
@@ -160,7 +220,7 @@ export default function MedicineDetailScreen() {
           </View>
         )}
 
-        {/* Helper function to split text by lines or bullets */}
+        {/* Clinical Details & Patient Information */}
         {(() => {
           const parseListItems = (text?: string): string[] => {
             if (!text) return [];
@@ -170,49 +230,48 @@ export default function MedicineDetailScreen() {
               .filter(Boolean);
           };
 
-          const descriptionText = medicine.description || "Effective for relief of mild to moderate pain including headache, migraine, neuralgia, toothache, sore throat, period pain, and relief of symptoms of flu and fever.";
-          const dosageItems = parseListItems(medicine.dosageInstructions || medicine.dosage || "Adults & Children > 12y:\n1-2 tablets every 4-6 hours as required. Do not exceed 8 tablets in 24 hours.");
-
-          const precautionsItems = parseListItems(medicine.precautions || "Avoid alcohol consumption while taking this medication.\nDo not take with other paracetamol-containing products.");
-          const sideEffectsItems = parseListItems(medicine.sideEffects || "Common side effects are rare but may include allergic reactions (skin rash, swelling), or blood disorders. Consult a doctor if you experience any unusual symptoms.");
+          const descriptionText = medicine.description || "Effective relief and medical therapy indicated for mild to moderate symptoms. Consult your healthcare provider or pharmacist for tailored advice.";
+          const dosageItems = parseListItems(medicine.dosageInstructions || medicine.dosage || "Take as directed by your physician or pharmacist.\nDo not exceed recommended daily allowance.");
+          const precautionsItems = parseListItems(medicine.precautions || "Keep out of reach of children.\nStore in a cool, dry place away from direct sunlight.");
+          const sideEffectsItems = parseListItems(medicine.sideEffects || "Mild digestive discomfort or drowsiness may occur in some individuals. If severe symptoms occur, consult a doctor immediately.");
 
           return (
-            <View className="mx-6 mt-5 gap-5">
-              {/* Description */}
+            <View className="mx-6 mt-4 gap-4">
+              {/* Clinical Description */}
               <View className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm gap-2">
                 <View className="flex-row items-center gap-2 mb-1">
-                  <Ionicons name="information-circle-outline" size={18} color="#0f766e" />
-                  <Text className="text-base font-bold text-slate-800">Description</Text>
+                  <Ionicons name="information-circle" size={18} color="#0f766e" />
+                  <Text className="text-base font-bold text-slate-800">About this Medicine</Text>
                 </View>
                 <Text className="text-xs text-slate-600 leading-relaxed">
                   {descriptionText}
                 </Text>
               </View>
 
-              {/* Dosage */}
+              {/* Dosage & Directions */}
               <View className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm gap-3">
                 <View className="flex-row items-center gap-2 mb-1">
-                  <Ionicons name="fitness-outline" size={18} color="#0f766e" />
-                  <Text className="text-base font-bold text-slate-800">Dosage</Text>
+                  <Ionicons name="calendar-outline" size={18} color="#0f766e" />
+                  <Text className="text-base font-bold text-slate-800">Dosage & Directions for Use</Text>
                 </View>
                 {dosageItems.map((item, idx) => (
                   <View key={idx} className="flex-row items-start gap-2.5">
                     <View className="w-1.5 h-1.5 rounded-full bg-teal-600 mt-1.5" />
-                    <Text className="flex-1 text-xs font-bold text-slate-800 leading-normal">{item}</Text>
+                    <Text className="flex-1 text-xs font-semibold text-slate-700 leading-relaxed">{item}</Text>
                   </View>
                 ))}
               </View>
 
-              {/* Precautions */}
-              <View className="bg-red-50/50 rounded-3xl p-5 border border-red-100 shadow-sm gap-3">
+              {/* Precautions & Warnings */}
+              <View className="bg-amber-50/40 rounded-3xl p-5 border border-amber-200/60 shadow-sm gap-3">
                 <View className="flex-row items-center gap-2 mb-1">
-                  <Ionicons name="warning-outline" size={18} color="#dc2626" />
-                  <Text className="text-base font-bold text-red-900">Precautions</Text>
+                  <Ionicons name="warning" size={18} color="#d97706" />
+                  <Text className="text-base font-bold text-amber-950">Precautions & Warnings</Text>
                 </View>
                 {precautionsItems.map((item, idx) => (
                   <View key={idx} className="flex-row items-start gap-2.5">
-                    <View className="w-1.5 h-1.5 rounded-full bg-red-500 mt-1.5" />
-                    <Text className="flex-1 text-xs font-semibold text-red-950 leading-normal">{item}</Text>
+                    <View className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5" />
+                    <Text className="flex-1 text-xs font-medium text-amber-900 leading-relaxed">{item}</Text>
                   </View>
                 ))}
               </View>
@@ -220,16 +279,27 @@ export default function MedicineDetailScreen() {
               {/* Side Effects */}
               <View className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm gap-3">
                 <View className="flex-row items-center gap-2 mb-1">
-                  <Ionicons name="medkit-outline" size={18} color="#0f766e" />
-                  <Text className="text-base font-bold text-slate-800">Side Effects</Text>
+                  <Ionicons name="fitness-outline" size={18} color="#0f766e" />
+                  <Text className="text-base font-bold text-slate-800">Possible Side Effects</Text>
                 </View>
                 {sideEffectsItems.map((item, idx) => (
                   <View key={idx} className="flex-row items-start gap-2.5">
-                    <View className="w-1.5 h-1.5 rounded-full bg-teal-600 mt-1.5" />
-                    <Text className="flex-1 text-xs text-slate-600 leading-normal">{item}</Text>
+                    <View className="w-1.5 h-1.5 rounded-full bg-slate-400 mt-1.5" />
+                    <Text className="flex-1 text-xs text-slate-600 leading-relaxed">{item}</Text>
                   </View>
                 ))}
               </View>
+
+              {/* Tags if any */}
+              {medicine.tags ? (
+                <View className="flex-row flex-wrap gap-1.5 pt-1">
+                  {medicine.tags.split(",").map((t, idx) => (
+                    <View key={idx} className="bg-slate-100 px-2.5 py-1 rounded-full">
+                      <Text className="text-[10px] font-semibold text-slate-500">#{t.trim()}</Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
             </View>
           );
         })()}

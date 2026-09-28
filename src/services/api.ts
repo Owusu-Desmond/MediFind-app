@@ -113,10 +113,15 @@ export interface BackendMedicine {
   id: number;
   name: string;
   generic_name?: string;
+  strength?: string;
+  dosage_form?: string;
+  route_of_administration?: string;
   dosage?: string;
   category?: string;
+  therapeutic_category?: string;
   description?: string;
   manufacturer?: string;
+  requires_prescription?: boolean;
   image_url?: string;
   dosage_instructions?: string;
   precautions?: string;

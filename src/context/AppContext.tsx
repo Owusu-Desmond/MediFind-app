@@ -16,7 +16,13 @@ export interface Medicine {
   rawMedicineId?: number;
   name: string;
   genericName: string;
+  strength?: string;
+  dosageForm?: string;
+  routeOfAdministration?: string;
   category: string;
+  therapeuticCategory?: string;
+  manufacturer?: string;
+  requiresPrescription?: boolean;
   inStock: boolean;
   price: number;
   pharmacy: string;
@@ -445,7 +451,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               rawMedicineId: med.id,
               name: med.name,
               genericName: med.generic_name || med.name,
-              category: med.category || "General",
+              strength: med.strength || med.dosage || "",
+              dosageForm: med.dosage_form || "",
+              routeOfAdministration: med.route_of_administration || "",
+              category: med.therapeutic_category || med.category || "General",
+              therapeuticCategory: med.therapeutic_category || med.category || "General",
+              manufacturer: med.manufacturer || "",
+              requiresPrescription: !!med.requires_prescription,
               inStock: (inv?.stock_quantity ?? 0) > 0,
               price: inv?.price ?? 15.0,
               pharmacy: pharma.name,
@@ -455,7 +467,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               rating: 4.8,
               reviews: 18,
               description: med.description || "",
-              dosage: med.dosage || "",
+              dosage: med.dosage || med.strength || "",
               dosageInstructions: med.dosage_instructions || "",
               precautions: med.precautions || "",
               sideEffects: med.side_effects || "",
@@ -487,7 +499,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               rawMedicineId: med.id,
               name: med.name,
               genericName: med.generic_name || med.name,
-              category: med.category || "General",
+              strength: med.strength || med.dosage || "",
+              dosageForm: med.dosage_form || "",
+              routeOfAdministration: med.route_of_administration || "",
+              category: med.therapeutic_category || med.category || "General",
+              therapeuticCategory: med.therapeutic_category || med.category || "General",
+              manufacturer: med.manufacturer || "",
+              requiresPrescription: !!med.requires_prescription,
               inStock: true,
               price: 15.0,
               pharmacy: firstPharma?.name || "Verified Pharmacy",
@@ -497,7 +515,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               rating: 4.8,
               reviews: 15,
               description: med.description || "",
-              dosage: med.dosage || "",
+              dosage: med.dosage || med.strength || "",
               dosageInstructions: med.dosage_instructions || "",
               precautions: med.precautions || "",
               sideEffects: med.side_effects || "",
