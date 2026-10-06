@@ -6,6 +6,8 @@ import {
   TouchableOpacity,
   Linking,
   Platform,
+  Image,
+  StyleSheet,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -65,108 +67,229 @@ export default function PharmacyDetailScreen() {
       ? `https://maps.google.com/maps?q=${pharmacy.lat},${pharmacy.lng}&z=15&output=embed`
       : `https://maps.google.com/maps?q=${encodeURIComponent(pharmacy.name + ", " + pharmacy.address)}&z=15&output=embed`;
 
+  const hasStorefront = Boolean(pharmacy.imageUrl || pharmacy.logoUrl);
+
   return (
-    <SafeAreaView className="flex-1 bg-primary" edges={["top"]}>
-      <StatusBar style="light" />
-      <ScrollView showsVerticalScrollIndicator={false} className="bg-slate-50" contentContainerStyle={{ paddingBottom: 32 }}>
-        {/* Hero Header */}
-        <View className="bg-primary pt-4 pb-12 px-6 rounded-b-[40px]">
-          {/* Nav row */}
-          <View className="flex-row items-center justify-between mb-6">
-            <TouchableOpacity
-              onPress={() => {
-                if (router.canGoBack()) {
-                  router.back();
-                } else {
-                  router.replace("/(tabs)/pharmacies");
-                }
-              }}
-              className="w-10 h-10 rounded-xl bg-white/20 items-center justify-center"
-            >
-              <Ionicons name="arrow-back" size={20} color="white" />
-            </TouchableOpacity>
-            <View className="flex-row gap-2">
+    <SafeAreaView className={`flex-1 ${hasStorefront ? "bg-white" : "bg-primary"}`} edges={["top"]}>
+      <StatusBar style={hasStorefront ? "dark" : "light"} />
+      <ScrollView showsVerticalScrollIndicator={false} className="bg-slate-50" contentContainerStyle={{ paddingBottom: 36 }}>
+        {hasStorefront ? (
+          <>
+            {/* Storefront Hero Card with White Margins & 100% Full-Cover Image */}
+            <View className="mx-4 mt-2 rounded-[28px] overflow-hidden relative shadow-sm min-h-[260px] bg-slate-900">
+              <Image
+                source={{ uri: pharmacy.imageUrl || pharmacy.logoUrl }}
+                style={StyleSheet.absoluteFill}
+                resizeMode="cover"
+              />
+              {/* Vignette / Dark Gradient Overlay for optimal contrast */}
+              <View style={StyleSheet.absoluteFill} className="bg-black/25" />
+              <View className="absolute inset-x-0 bottom-0 h-48 bg-black/70" />
+              <View style={StyleSheet.absoluteFill} className="bg-slate-950/20" />
+
+              {/* Card Content with Padding */}
+              <View className="flex-1 justify-between p-4 min-h-[260px]">
+                {/* Top Navigation Row floating on image */}
+                <View className="flex-row items-center justify-between z-10">
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (router.canGoBack()) {
+                        router.back();
+                      } else {
+                        router.replace("/(tabs)/pharmacies");
+                      }
+                    }}
+                    className="w-10 h-10 rounded-full bg-black/40 items-center justify-center border border-white/20"
+                  >
+                    <Ionicons name="arrow-back" size={20} color="white" />
+                  </TouchableOpacity>
+                  <View className="flex-row gap-2">
+                    <TouchableOpacity
+                      onPress={() => toggleSavePharmacy(pharmacy.id)}
+                      className="w-10 h-10 rounded-full bg-black/40 items-center justify-center border border-white/20"
+                    >
+                      <Ionicons
+                        name={isSaved ? "bookmark" : "bookmark-outline"}
+                        size={18}
+                        color="white"
+                      />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={handleDirections}
+                      className="w-10 h-10 rounded-full bg-black/40 items-center justify-center border border-white/20"
+                    >
+                      <Ionicons name="navigate-outline" size={18} color="white" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Bottom Details Row */}
+                <View className="z-10 mt-12 space-y-1">
+                  {/* Verified Pill Badge */}
+                  {pharmacy.verified && (
+                    <View className="bg-emerald-600 self-start px-2.5 py-1 rounded-full flex-row items-center gap-1.5 mb-1.5 shadow-sm">
+                      <Ionicons name="checkmark-circle" size={13} color="white" />
+                      <Text className="text-white text-xs font-bold">Verified</Text>
+                    </View>
+                  )}
+
+                  {/* Big Bold Pharmacy Name */}
+                  <Text className="text-white text-2xl sm:text-3xl font-black leading-tight tracking-tight drop-shadow" numberOfLines={2}>
+                    {pharmacy.name}
+                  </Text>
+
+                  {/* Star Rating & Status Row */}
+                  <View className="flex-row items-center gap-2 mt-1 flex-wrap">
+                    <View className="flex-row items-center gap-1">
+                      <Ionicons name="star" size={14} color="#fbbf24" />
+                      <Text className="text-white font-extrabold text-sm">{pharmacy.rating}</Text>
+                      <Text className="text-white/80 font-bold text-xs">({pharmacy.reviews || 0} Reviews)</Text>
+                    </View>
+                    <Text className="text-white/50 font-bold text-xs">•</Text>
+                    <Text className={`font-bold text-xs ${pharmacy.isOpen ? "text-emerald-400" : "text-red-400"}`}>
+                      {pharmacy.isOpen ? "Open Now" : "Closed"}
+                    </Text>
+                    {pharmacy.distance ? (
+                      <>
+                        <Text className="text-white/50 font-bold text-xs">•</Text>
+                        <Text className="text-white/90 font-bold text-xs">{pharmacy.distance}</Text>
+                      </>
+                    ) : null}
+                  </View>
+
+                  {/* Address */}
+                  <View className="flex-row items-center gap-1 mt-0.5">
+                    <Ionicons name="location-sharp" size={12} color="rgba(255,255,255,0.75)" />
+                    <Text className="text-white/80 text-xs font-medium flex-1" numberOfLines={1}>
+                      {pharmacy.address}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+
+            {/* Quick Actions (Storefront mode) */}
+            <View className="mx-4 mt-3 bg-white rounded-2xl p-3 border border-slate-100 shadow-sm flex-row gap-3">
               <TouchableOpacity
-                onPress={() => toggleSavePharmacy(pharmacy.id)}
-                className="w-10 h-10 rounded-xl bg-white/20 items-center justify-center"
+                onPress={handleCall}
+                activeOpacity={0.7}
+                className="flex-1 flex-row items-center justify-center gap-2 bg-primary py-3.5 rounded-xl"
               >
-                <Ionicons
-                  name={isSaved ? "bookmark" : "bookmark-outline"}
-                  size={20}
-                  color="white"
-                />
+                <Ionicons name="call" size={16} color="white" />
+                <Text className="text-white font-bold text-xs">Call</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleDirections}
-                className="w-10 h-10 rounded-xl bg-white/20 items-center justify-center"
+                activeOpacity={0.7}
+                className="flex-1 flex-row items-center justify-center gap-2 bg-slate-50 border border-slate-200 py-3.5 rounded-xl"
               >
-                <Ionicons name="navigate-outline" size={20} color="white" />
+                <Ionicons name="navigate" size={16} color="#0f766e" />
+                <Text className="text-primary font-bold text-xs">Directions</Text>
               </TouchableOpacity>
             </View>
-          </View>
+          </>
+        ) : (
+          <>
+            {/* Original Full-width Curved Teal Hero Header when no storefront image */}
+            <View className="bg-primary pt-4 pb-12 px-6 rounded-b-[40px]">
+              {/* Nav row */}
+              <View className="flex-row items-center justify-between mb-6">
+                <TouchableOpacity
+                  onPress={() => {
+                    if (router.canGoBack()) {
+                      router.back();
+                    } else {
+                      router.replace("/(tabs)/pharmacies");
+                    }
+                  }}
+                  className="w-10 h-10 rounded-xl bg-white/20 items-center justify-center"
+                >
+                  <Ionicons name="arrow-back" size={20} color="white" />
+                </TouchableOpacity>
+                <View className="flex-row gap-2">
+                  <TouchableOpacity
+                    onPress={() => toggleSavePharmacy(pharmacy.id)}
+                    className="w-10 h-10 rounded-xl bg-white/20 items-center justify-center"
+                  >
+                    <Ionicons
+                      name={isSaved ? "bookmark" : "bookmark-outline"}
+                      size={20}
+                      color="white"
+                    />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={handleDirections}
+                    className="w-10 h-10 rounded-xl bg-white/20 items-center justify-center"
+                  >
+                    <Ionicons name="navigate-outline" size={20} color="white" />
+                  </TouchableOpacity>
+                </View>
+              </View>
 
-          {/* Pharmacy Info */}
-          <View className="flex-row items-start gap-4">
-            <View className="w-16 h-16 rounded-2xl bg-white/20 items-center justify-center border border-white/10">
-              <Ionicons name="storefront" size={30} color="white" />
-            </View>
-            <View className="flex-1">
-              <View className="flex-row items-center gap-1.5">
-                <Text className="text-white text-xl font-bold leading-tight flex-1" numberOfLines={2}>
-                  {pharmacy.name}
-                </Text>
-                {pharmacy.verified && (
-                  <View className="bg-white/20 p-1 rounded-full">
-                    <Ionicons name="checkmark-circle" size={16} color="white" />
+              {/* Pharmacy Info */}
+              <View className="flex-row items-start gap-4">
+                <View className="w-16 h-16 rounded-2xl bg-white/20 items-center justify-center border border-white/10">
+                  <Ionicons name="storefront" size={30} color="white" />
+                </View>
+                <View className="flex-1">
+                  <View className="flex-row items-center gap-1.5">
+                    <Text className="text-white text-xl font-bold leading-tight flex-1" numberOfLines={2}>
+                      {pharmacy.name}
+                    </Text>
+                    {pharmacy.verified && (
+                      <View className="bg-white/20 p-1 rounded-full">
+                        <Ionicons name="checkmark-circle" size={16} color="white" />
+                      </View>
+                    )}
                   </View>
-                )}
-              </View>
-              <Text className="text-white/60 text-xs font-semibold mt-1">{pharmacy.address}</Text>
-              <View className="flex-row items-center gap-3 mt-2 flex-wrap">
-                <View className="flex-row items-center gap-1">
-                  <Ionicons name="star" size={13} color="#fbbf24" />
-                  <Text className="text-white font-bold text-xs">{pharmacy.rating}</Text>
-                  <Text className="text-white/50 text-xs">({pharmacy.reviews})</Text>
-                </View>
-                <View className="bg-white/20 px-2 py-0.5 rounded-full flex-row items-center gap-1">
-                  <Ionicons name="location" size={11} color="white" />
-                  <Text className="text-white text-[10px] font-bold">
-                    {pharmacy.distance}
-                  </Text>
-                </View>
-                <View className={`flex-row items-center gap-1 px-2.5 py-0.5 rounded-full ${pharmacy.isOpen ? "bg-emerald-500/30" : "bg-red-500/30"}`}>
-                  <View className={`w-1.5 h-1.5 rounded-full ${pharmacy.isOpen ? "bg-emerald-400" : "bg-red-400"}`} />
-                  <Text className={`text-[10px] font-bold ${pharmacy.isOpen ? "text-emerald-300" : "text-red-300"}`}>
-                    {pharmacy.isOpen ? "Open Now" : "Closed"}
-                  </Text>
+                  <Text className="text-white/60 text-xs font-semibold mt-1">{pharmacy.address}</Text>
+                  <View className="flex-row items-center gap-3 mt-2 flex-wrap">
+                    <View className="flex-row items-center gap-1">
+                      <Ionicons name="star" size={13} color="#fbbf24" />
+                      <Text className="text-white font-bold text-xs">{pharmacy.rating}</Text>
+                      <Text className="text-white/50 text-xs">({pharmacy.reviews})</Text>
+                    </View>
+                    <View className="bg-white/20 px-2 py-0.5 rounded-full flex-row items-center gap-1">
+                      <Ionicons name="location" size={11} color="white" />
+                      <Text className="text-white text-[10px] font-bold">
+                        {pharmacy.distance}
+                      </Text>
+                    </View>
+                    <View className={`flex-row items-center gap-1 px-2.5 py-0.5 rounded-full ${pharmacy.isOpen ? "bg-emerald-500/30" : "bg-red-500/30"}`}>
+                      <View className={`w-1.5 h-1.5 rounded-full ${pharmacy.isOpen ? "bg-emerald-400" : "bg-red-400"}`} />
+                      <Text className={`text-[10px] font-bold ${pharmacy.isOpen ? "text-emerald-300" : "text-red-300"}`}>
+                        {pharmacy.isOpen ? "Open Now" : "Closed"}
+                      </Text>
+                    </View>
+                  </View>
                 </View>
               </View>
             </View>
-          </View>
-        </View>
 
-        {/* Quick Actions */}
-        <View className="mx-6 -mt-6 bg-white rounded-3xl p-4 border border-slate-100 shadow-sm flex-row gap-3">
-          <TouchableOpacity
-            onPress={handleCall}
-            activeOpacity={0.7}
-            className="flex-1 flex-row items-center justify-center gap-2 bg-primary py-3.5 rounded-2xl"
-          >
-            <Ionicons name="call" size={16} color="white" />
-            <Text className="text-white font-bold text-xs">Call</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={handleDirections}
-            activeOpacity={0.7}
-            className="flex-1 flex-row items-center justify-center gap-2 bg-slate-50 border border-slate-200 py-3.5 rounded-2xl"
-          >
-            <Ionicons name="navigate" size={16} color="#0f766e" />
-            <Text className="text-primary font-bold text-xs">Directions</Text>
-          </TouchableOpacity>
-        </View>
+            {/* Quick Actions (Original floating overlapping mode) */}
+            <View className="mx-6 -mt-6 bg-white rounded-3xl p-4 border border-slate-100 shadow-sm flex-row gap-3">
+              <TouchableOpacity
+                onPress={handleCall}
+                activeOpacity={0.7}
+                className="flex-1 flex-row items-center justify-center gap-2 bg-primary py-3.5 rounded-2xl"
+              >
+                <Ionicons name="call" size={16} color="white" />
+                <Text className="text-white font-bold text-xs">Call</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleDirections}
+                activeOpacity={0.7}
+                className="flex-1 flex-row items-center justify-center gap-2 bg-slate-50 border border-slate-200 py-3.5 rounded-2xl"
+              >
+                <Ionicons name="navigate" size={16} color="#0f766e" />
+                <Text className="text-primary font-bold text-xs">Directions</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
 
         {/* Location & Map Preview */}
-        <View className="mx-6 mt-5">
+        <View className="mx-4 mt-5">
           <Text className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 px-1">
             Map Location & GPS
           </Text>
@@ -200,7 +323,7 @@ export default function PharmacyDetailScreen() {
         </View>
 
         {/* Details */}
-        <View className="mx-6 mt-5">
+        <View className="mx-4 mt-5">
           <Text className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 px-1">
             Branch Information
           </Text>
@@ -230,7 +353,7 @@ export default function PharmacyDetailScreen() {
         </View>
 
         {/* Available Medicines */}
-        <View className="mx-6 mt-5">
+        <View className="mx-4 mt-5">
           <View className="flex-row items-center justify-between mb-3 px-1">
             <Text className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
               Available Medicines ({pharmacyMeds.length})

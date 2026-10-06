@@ -57,6 +57,8 @@ export interface Pharmacy {
   status?: string;
   lat?: number;
   lng?: number;
+  imageUrl?: string;
+  logoUrl?: string;
 }
 
 export interface Reservation {
@@ -504,6 +506,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 status: bp.status,
                 lat: bp.lat,
                 lng: bp.lng,
+                imageUrl: bp.image_url || undefined,
+                logoUrl: bp.logo_url || undefined,
               };
             });
 

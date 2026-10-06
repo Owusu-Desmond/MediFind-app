@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Alert,
   Image,
+  StyleSheet,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -60,85 +61,180 @@ export default function MedicineDetailScreen() {
     } as never);
   };
 
+  const hasMedicineImage = Boolean(medicine.imageUrl);
+
   return (
-    <SafeAreaView className="flex-1 bg-primary" edges={["top"]}>
-      <StatusBar style="light" />
+    <SafeAreaView className={`flex-1 ${hasMedicineImage ? "bg-white" : "bg-primary"}`} edges={["top"]}>
+      <StatusBar style={hasMedicineImage ? "dark" : "light"} />
       <ScrollView showsVerticalScrollIndicator={false} className="bg-slate-50" contentContainerStyle={{ paddingBottom: 120 }}>
-        {/* Header with back button */}
-        <View className="bg-primary pt-4 pb-8 px-6 rounded-b-[36px]">
-          <TouchableOpacity
-            onPress={() => {
-              if (router.canGoBack()) {
-                router.back();
-              } else {
-                router.replace("/(tabs)/home");
-              }
-            }}
-            className="w-10 h-10 rounded-xl bg-white/20 items-center justify-center mb-5"
-          >
-            <Ionicons name="arrow-back" size={20} color="white" />
-          </TouchableOpacity>
+        {hasMedicineImage ? (
+          <>
+            {/* Full-bleed Product Photo Hero Card with 100% Full-Cover Image */}
+            <View className="mx-4 mt-2 rounded-[28px] overflow-hidden relative shadow-sm min-h-[260px] bg-slate-900">
+              <Image
+                source={{ uri: medicine.imageUrl }}
+                style={StyleSheet.absoluteFill}
+                resizeMode="cover"
+              />
+              {/* Vignette / Dark Gradient Overlays */}
+              <View style={StyleSheet.absoluteFill} className="bg-black/20" />
+              <View className="absolute inset-x-0 bottom-0 h-48 bg-black/70" />
+              <View style={StyleSheet.absoluteFill} className="bg-slate-950/20" />
 
-          <View className="flex-row items-start gap-4">
-            {medicine.imageUrl ? (
-              <Image source={{ uri: medicine.imageUrl }} className="w-16 h-16 rounded-2xl bg-white/20" resizeMode="cover" />
-            ) : (
-              <View className="w-16 h-16 rounded-2xl bg-white/20 items-center justify-center">
-                <Ionicons name="medkit" size={30} color="white" />
-              </View>
-            )}
-            <View className="flex-1">
-              <Text className="text-white text-xl font-bold leading-tight">{medicine.name}</Text>
-              {medicine.genericName && medicine.genericName !== medicine.name ? (
-                <Text className="text-teal-100 text-xs font-medium mt-0.5">
-                  Generic: <Text className="font-semibold">{medicine.genericName}</Text>
-                </Text>
-              ) : null}
-              
-              <View className="flex-row flex-wrap items-center gap-1.5 mt-2.5">
-                {medicine.requiresPrescription ? (
-                  <View className="bg-amber-400/90 px-2 py-0.5 rounded-full flex-row items-center gap-1">
-                    <Ionicons name="document-text" size={10} color="#78350f" />
-                    <Text className="text-amber-950 text-[10px] font-bold">Rx Only</Text>
-                  </View>
-                ) : (
-                  <View className="bg-emerald-400/90 px-2 py-0.5 rounded-full">
-                    <Text className="text-emerald-950 text-[10px] font-bold">OTC (No Rx)</Text>
-                  </View>
-                )}
+              {/* Card Content with Padding */}
+              <View className="flex-1 justify-between p-4 min-h-[260px]">
+                {/* Top Navigation Row floating on image */}
+                <View className="flex-row items-center justify-between z-10">
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (router.canGoBack()) {
+                        router.back();
+                      } else {
+                        router.replace("/(tabs)/home");
+                      }
+                    }}
+                    className="w-10 h-10 rounded-full bg-black/40 items-center justify-center border border-white/20"
+                  >
+                    <Ionicons name="arrow-back" size={20} color="white" />
+                  </TouchableOpacity>
 
-                <View className="bg-white/20 px-2 py-0.5 rounded-full">
-                  <Text className="text-white text-[10px] font-bold">{medicine.category || "General"}</Text>
+                  {/* Floating Badges */}
+                  <View className="flex-row items-center gap-1.5">
+                    {medicine.requiresPrescription && (
+                      <View className="bg-amber-500/90 px-2.5 py-1 rounded-full flex-row items-center gap-1 border border-white/20">
+                        <Ionicons name="document-text" size={11} color="white" />
+                        <Text className="text-white text-xs font-bold">Rx Only</Text>
+                      </View>
+                    )}
+                    <View className={`px-3 py-1 rounded-full flex-row items-center gap-1.5 shadow-sm ${medicine.inStock ? "bg-emerald-600" : "bg-red-600"}`}>
+                      <Ionicons name={medicine.inStock ? "checkmark-circle" : "close-circle"} size={13} color="white" />
+                      <Text className="text-white text-xs font-bold">
+                        {medicine.inStock ? "In Stock" : "Out of Stock"}
+                      </Text>
+                    </View>
+                  </View>
                 </View>
 
-                <View className={`px-2 py-0.5 rounded-full ${medicine.inStock ? "bg-emerald-500/30" : "bg-red-500/30"}`}>
-                  <Text className={`text-[10px] font-bold ${medicine.inStock ? "text-emerald-200" : "text-red-200"}`}>
-                    {medicine.inStock ? "In Stock" : "Out of Stock"}
+                {/* Bottom Details */}
+                <View className="z-10 mt-12 space-y-1">
+                  <Text className="text-white text-2xl sm:text-3xl font-black leading-tight tracking-tight drop-shadow" numberOfLines={2}>
+                    {medicine.name}
                   </Text>
+                  {medicine.genericName && medicine.genericName !== medicine.name ? (
+                    <Text className="text-white/85 text-xs font-semibold mt-0.5">
+                      Generic: {medicine.genericName}
+                    </Text>
+                  ) : null}
+
+                  <View className="flex-row items-center gap-2 mt-1.5 flex-wrap">
+                    <View className="bg-black/40 px-2.5 py-0.5 rounded-full border border-white/20">
+                      <Text className="text-white text-[11px] font-bold">{medicine.category || "General"}</Text>
+                    </View>
+                    {medicine.dosageForm ? (
+                      <View className="bg-black/40 px-2.5 py-0.5 rounded-full border border-white/20">
+                        <Text className="text-white text-[11px] font-bold">{medicine.dosageForm}</Text>
+                      </View>
+                    ) : null}
+                    {medicine.strength || medicine.dosage ? (
+                      <View className="bg-black/40 px-2.5 py-0.5 rounded-full border border-white/20">
+                        <Text className="text-white text-[11px] font-mono font-bold">{medicine.strength || medicine.dosage}</Text>
+                      </View>
+                    ) : null}
+                  </View>
                 </View>
               </View>
             </View>
-          </View>
-        </View>
 
-        {/* Price + Rating Card */}
-        <View className="mx-6 -mt-4 bg-white rounded-3xl p-5 border border-slate-100 shadow-sm flex-row items-center justify-between">
-          <View>
-            <Text className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Price Per Unit</Text>
-            <Text className="text-2xl font-bold text-primary mt-0.5">GH₵{medicine.price.toFixed(2)}</Text>
-          </View>
-          <View className="items-end">
-            <View className="flex-row items-center gap-1">
-              <Ionicons name="star" size={16} color="#f59e0b" />
-              <Text className="text-lg font-bold text-slate-800">{medicine.rating}</Text>
+            {/* Price + Rating Card (Storefront/Image mode) */}
+            <View className="mx-4 mt-3 bg-white rounded-2xl p-4 border border-slate-100 shadow-sm flex-row items-center justify-between">
+              <View>
+                <Text className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Price Per Unit</Text>
+                <Text className="text-2xl font-bold text-primary mt-0.5">GH₵{medicine.price.toFixed(2)}</Text>
+              </View>
+              <View className="items-end">
+                <View className="flex-row items-center gap-1">
+                  <Ionicons name="star" size={16} color="#f59e0b" />
+                  <Text className="text-lg font-bold text-slate-800">{medicine.rating}</Text>
+                </View>
+                <Text className="text-[10px] text-slate-400 font-semibold">{medicine.reviews} patient reviews</Text>
+              </View>
             </View>
-            <Text className="text-[10px] text-slate-400 font-semibold">{medicine.reviews} patient reviews</Text>
-          </View>
-        </View>
+          </>
+        ) : (
+          <>
+            {/* Original Curved Teal Header when no medicine image */}
+            <View className="bg-primary pt-4 pb-8 px-6 rounded-b-[36px]">
+              <TouchableOpacity
+                onPress={() => {
+                  if (router.canGoBack()) {
+                    router.back();
+                  } else {
+                    router.replace("/(tabs)/home");
+                  }
+                }}
+                className="w-10 h-10 rounded-xl bg-white/20 items-center justify-center mb-5"
+              >
+                <Ionicons name="arrow-back" size={20} color="white" />
+              </TouchableOpacity>
+
+              <View className="flex-row items-start gap-4">
+                <View className="w-16 h-16 rounded-2xl bg-white/20 items-center justify-center">
+                  <Ionicons name="medkit" size={30} color="white" />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-white text-xl font-bold leading-tight">{medicine.name}</Text>
+                  {medicine.genericName && medicine.genericName !== medicine.name ? (
+                    <Text className="text-teal-100 text-xs font-medium mt-0.5">
+                      Generic: <Text className="font-semibold">{medicine.genericName}</Text>
+                    </Text>
+                  ) : null}
+                  
+                  <View className="flex-row flex-wrap items-center gap-1.5 mt-2.5">
+                    {medicine.requiresPrescription ? (
+                      <View className="bg-amber-400/90 px-2 py-0.5 rounded-full flex-row items-center gap-1">
+                        <Ionicons name="document-text" size={10} color="#78350f" />
+                        <Text className="text-amber-950 text-[10px] font-bold">Rx Only</Text>
+                      </View>
+                    ) : (
+                      <View className="bg-emerald-400/90 px-2 py-0.5 rounded-full">
+                        <Text className="text-emerald-950 text-[10px] font-bold">OTC (No Rx)</Text>
+                      </View>
+                    )}
+
+                    <View className="bg-white/20 px-2 py-0.5 rounded-full">
+                      <Text className="text-white text-[10px] font-bold">{medicine.category || "General"}</Text>
+                    </View>
+
+                    <View className={`px-2 py-0.5 rounded-full ${medicine.inStock ? "bg-emerald-500/30" : "bg-red-500/30"}`}>
+                      <Text className={`text-[10px] font-bold ${medicine.inStock ? "text-emerald-200" : "text-red-200"}`}>
+                        {medicine.inStock ? "In Stock" : "Out of Stock"}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            </View>
+
+            {/* Price + Rating Card (Original overlapping mode) */}
+            <View className="mx-6 -mt-4 bg-white rounded-3xl p-5 border border-slate-100 shadow-sm flex-row items-center justify-between">
+              <View>
+                <Text className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Price Per Unit</Text>
+                <Text className="text-2xl font-bold text-primary mt-0.5">GH₵{medicine.price.toFixed(2)}</Text>
+              </View>
+              <View className="items-end">
+                <View className="flex-row items-center gap-1">
+                  <Ionicons name="star" size={16} color="#f59e0b" />
+                  <Text className="text-lg font-bold text-slate-800">{medicine.rating}</Text>
+                </View>
+                <Text className="text-[10px] text-slate-400 font-semibold">{medicine.reviews} patient reviews</Text>
+              </View>
+            </View>
+          </>
+        )}
 
         {/* Rx Requirement Notice Banner if Rx */}
         {medicine.requiresPrescription && (
-          <View className="mx-6 mt-4 bg-amber-50 border border-amber-200/80 rounded-2xl p-4 flex-row items-start gap-3">
+          <View className={`${hasMedicineImage ? "mx-4" : "mx-6"} mt-4 bg-amber-50 border border-amber-200/80 rounded-2xl p-4 flex-row items-start gap-3`}>
             <Ionicons name="alert-circle" size={20} color="#b45309" className="mt-0.5" />
             <View className="flex-1">
               <Text className="text-amber-900 font-bold text-xs">Prescription Required</Text>
@@ -150,7 +246,7 @@ export default function MedicineDetailScreen() {
         )}
 
         {/* Quick Facts / Medicine Specs Grid */}
-        <View className="mx-6 mt-4 bg-white rounded-3xl p-5 border border-slate-100 shadow-sm">
+        <View className={`${hasMedicineImage ? "mx-4" : "mx-6"} mt-4 bg-white rounded-3xl p-5 border border-slate-100 shadow-sm`}>
           <Text className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-3">
             Product Specifications
           </Text>
@@ -182,7 +278,7 @@ export default function MedicineDetailScreen() {
 
         {/* Pharmacy Info */}
         {pharmacy && (
-          <View className="mx-6 mt-4">
+          <View className={`${hasMedicineImage ? "mx-4" : "mx-6"} mt-4`}>
             <Text className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 px-1">
               Available At
             </Text>
@@ -236,7 +332,7 @@ export default function MedicineDetailScreen() {
           const sideEffectsItems = parseListItems(medicine.sideEffects || "Mild digestive discomfort or drowsiness may occur in some individuals. If severe symptoms occur, consult a doctor immediately.");
 
           return (
-            <View className="mx-6 mt-4 gap-4">
+            <View className={`${hasMedicineImage ? "mx-4" : "mx-6"} mt-4 gap-4`}>
               {/* Clinical Description */}
               <View className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm gap-2">
                 <View className="flex-row items-center gap-2 mb-1">

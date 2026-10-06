@@ -175,18 +175,26 @@ export default function HomeScreen() {
                 className="bg-white rounded-3xl p-5 mb-3 border border-slate-100 shadow-sm"
               >
                 <View className="flex-row items-start gap-4">
-                  {/* Icon */}
-                  <View
-                    className={`w-12 h-12 rounded-2xl items-center justify-center ${
-                      med.inStock ? "bg-teal-50" : "bg-slate-100"
-                    }`}
-                  >
-                    <Ionicons
-                      name="medkit"
-                      size={22}
-                      color={med.inStock ? "#0f766e" : "#94a3b8"}
+                  {/* Medicine Image / Icon */}
+                  {med.imageUrl ? (
+                    <Image
+                      source={{ uri: med.imageUrl }}
+                      className="w-12 h-12 rounded-2xl bg-slate-100"
+                      resizeMode="cover"
                     />
-                  </View>
+                  ) : (
+                    <View
+                      className={`w-12 h-12 rounded-2xl items-center justify-center ${
+                        med.inStock ? "bg-teal-50" : "bg-slate-100"
+                      }`}
+                    >
+                      <Ionicons
+                        name="medkit"
+                        size={22}
+                        color={med.inStock ? "#0f766e" : "#94a3b8"}
+                      />
+                    </View>
+                  )}
 
                   {/* Details */}
                   <View className="flex-1">

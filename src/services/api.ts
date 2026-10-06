@@ -107,6 +107,8 @@ export interface BackendPharmacy {
   lng?: number;
   verified: boolean;
   is_open?: boolean;
+  image_url?: string;
+  logo_url?: string;
 }
 
 export interface BackendMedicineAlias {
