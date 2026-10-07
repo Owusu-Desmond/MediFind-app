@@ -219,13 +219,26 @@ export const api = {
     return fetchApi<BackendMedicine[]>("/api/medicines/");
   },
 
-  async searchMedicines(q: string, lat?: number, lng?: number, category?: string) {
+  async searchMedicines(
+    q: string,
+    lat?: number,
+    lng?: number,
+    category?: string,
+    skip?: number,
+    limit?: number
+  ) {
     let url = `/api/medicines/search?q=${encodeURIComponent(q)}`;
     if (lat !== undefined && lng !== undefined) {
       url += `&lat=${lat}&lng=${lng}`;
     }
     if (category && category !== "All") {
       url += `&category=${encodeURIComponent(category)}`;
+    }
+    if (skip !== undefined) {
+      url += `&skip=${skip}`;
+    }
+    if (limit !== undefined) {
+      url += `&limit=${limit}`;
     }
     return fetchApi<Array<{
       medicine: BackendMedicine;

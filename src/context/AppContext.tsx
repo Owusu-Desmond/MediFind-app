@@ -147,7 +147,10 @@ interface AppContextType {
   refreshData: () => Promise<void>;
   savedPharmacies: string[];
   toggleSavePharmacy: (id: string) => void;
-  searchLiveMedicines: (query: string, category?: string) => Promise<Medicine[]>;
+  searchLiveMedicines: (query: string, category?: string, skip?: number, limit?: number) => Promise<Medicine[]>;
+  hasMoreMedicines: boolean;
+  loadingMoreMedicines: boolean;
+  loadMoreMedicines: () => Promise<boolean>;
   notifications: BackendNotification[];
   unreadCount: number;
   notificationsLoading: boolean;
@@ -254,6 +257,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [notificationsLoading, setNotificationsLoading] = useState<boolean>(false);
   const [notificationsRefreshing, setNotificationsRefreshing] = useState<boolean>(false);
 
+  const [hasMoreMedicines, setHasMoreMedicines] = useState(true);
+  const [loadingMoreMedicines, setLoadingMoreMedicines] = useState(false);
+
   // Live GPS Location state
   const [userLocation, setUserLocation] = useState<Coordinates | null>(null);
   const [locationPermission, setLocationPermission] = useState<LocationPermissionStatus>("undetermined");
@@ -273,71 +279,127 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const transformSearchResults = useCallback(
+    (searchResults: any[]): Medicine[] => {
+      if (!Array.isArray(searchResults)) return [];
+      return searchResults
+        .filter((item) => {
+          const pharma = item.pharmacy;
+          return pharma && (!pharma.status || pharma.status.toLowerCase() === "approved");
+        })
+        .map((item) => {
+          const med = item.medicine;
+          const pharma = item.pharmacy;
+          const inv = item.inventory;
+          const distKm = userLocation
+            ? calculateDistance(userLocation.latitude, userLocation.longitude, pharma.lat, pharma.lng)
+            : (item.distance_km ?? null);
+
+          return {
+            id: `${med.id}-${pharma.id}`,
+            rawMedicineId: med.id,
+            name: med.name,
+            genericName: med.generic_name || med.name,
+            strength: med.strength || med.dosage || "",
+            dosageForm: med.dosage_form || "",
+            routeOfAdministration: med.route_of_administration || "",
+            category: med.therapeutic_category || med.category || "General",
+            therapeuticCategory: med.therapeutic_category || med.category || "General",
+            manufacturer: med.manufacturer || "",
+            requiresPrescription: !!med.requires_prescription,
+            inStock: (inv?.stock_quantity ?? 0) > 0,
+            price: inv?.price ?? 15.0,
+            pharmacy: pharma.name,
+            pharmacyId: String(pharma.id),
+            distance: formatDistance(distKm),
+            distanceKm: distKm,
+            rating: 4.8,
+            reviews: 18,
+            description: med.description || "",
+            dosage: med.dosage || med.strength || "",
+            dosageInstructions: med.dosage_instructions || "",
+            precautions: med.precautions || "",
+            sideEffects: med.side_effects || "",
+            tags: med.tags || "",
+            imageUrl: med.image_url || undefined,
+            matchedBy: med.matched_by,
+            aliases: med.aliases ? med.aliases.map((a: any) => a.alias) : [],
+          };
+        });
+    },
+    [userLocation]
+  );
+
   const searchLiveMedicines = useCallback(
-    async (query: string, category?: string): Promise<Medicine[]> => {
+    async (query: string, category?: string, skip?: number, limit?: number): Promise<Medicine[]> => {
       try {
         const searchResults = await api.searchMedicines(
           query,
           userLocation ? userLocation.latitude : undefined,
           userLocation ? userLocation.longitude : undefined,
-          category
+          category,
+          skip ?? 0,
+          limit ?? 20
         );
 
-        if (Array.isArray(searchResults)) {
-          const transformed: Medicine[] = searchResults
-            .filter((item) => {
-              const pharma = item.pharmacy;
-              return pharma && (!pharma.status || pharma.status.toLowerCase() === "approved");
-            })
-            .map((item) => {
-              const med = item.medicine;
-              const pharma = item.pharmacy;
-              const inv = item.inventory;
-              const distKm = userLocation
-                ? calculateDistance(userLocation.latitude, userLocation.longitude, pharma.lat, pharma.lng)
-                : (item.distance_km ?? null);
-
-              return {
-                id: `${med.id}-${pharma.id}`,
-                rawMedicineId: med.id,
-                name: med.name,
-                genericName: med.generic_name || med.name,
-                strength: med.strength || med.dosage || "",
-                dosageForm: med.dosage_form || "",
-                routeOfAdministration: med.route_of_administration || "",
-                category: med.therapeutic_category || med.category || "General",
-                therapeuticCategory: med.therapeutic_category || med.category || "General",
-                manufacturer: med.manufacturer || "",
-                requiresPrescription: !!med.requires_prescription,
-                inStock: (inv?.stock_quantity ?? 0) > 0,
-                price: inv?.price ?? 15.0,
-                pharmacy: pharma.name,
-                pharmacyId: String(pharma.id),
-                distance: formatDistance(distKm),
-                distanceKm: distKm,
-                rating: 4.8,
-                reviews: 18,
-                description: med.description || "",
-                dosage: med.dosage || med.strength || "",
-                dosageInstructions: med.dosage_instructions || "",
-                precautions: med.precautions || "",
-                sideEffects: med.side_effects || "",
-                tags: med.tags || "",
-                imageUrl: med.image_url || undefined,
-                matchedBy: med.matched_by,
-                aliases: med.aliases ? med.aliases.map((a) => a.alias) : [],
-              };
-            });
-
-          return transformed;
-        }
-        return [];
+        return transformSearchResults(searchResults);
       } catch {
         return [];
       }
     },
-    [userLocation]
+    [userLocation, transformSearchResults]
   );
+
+  const loadMoreMedicines = useCallback(async (): Promise<boolean> => {
+    if (loadingMoreMedicines || !hasMoreMedicines) return false;
+    try {
+      setLoadingMoreMedicines(true);
+      const currentQuery = searchQuery.trim();
+      const currentOffset = medicines.length;
+
+      const nextResults = await api.searchMedicines(
+        currentQuery,
+        userLocation ? userLocation.latitude : undefined,
+        userLocation ? userLocation.longitude : undefined,
+        undefined,
+        currentOffset,
+        10
+      );
+
+      if (Array.isArray(nextResults) && nextResults.length > 0) {
+        const newMeds = transformSearchResults(nextResults);
+        setMedicines((prev) => {
+          const existingIds = new Set(prev.map((m) => m.id));
+          const filteredNew = newMeds.filter((m) => !existingIds.has(m.id));
+          return [...prev, ...filteredNew];
+        });
+        if (!currentQuery) {
+          setAllMedicines((prev) => {
+            const existingIds = new Set(prev.map((m) => m.id));
+            const filteredNew = newMeds.filter((m) => !existingIds.has(m.id));
+            return [...prev, ...filteredNew];
+          });
+        }
+        setHasMoreMedicines(nextResults.length === 10);
+        return true;
+      } else {
+        setHasMoreMedicines(false);
+        return false;
+      }
+    } catch {
+      setHasMoreMedicines(false);
+      return false;
+    } finally {
+      setLoadingMoreMedicines(false);
+    }
+  }, [
+    loadingMoreMedicines,
+    hasMoreMedicines,
+    searchQuery,
+    medicines.length,
+    userLocation,
+    transformSearchResults,
+  ]);
 
   useEffect(() => {
     const trimmed = searchQuery.trim();
@@ -345,6 +407,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setSearchLoading(false);
       if (allMedicines.length > 0) {
         setMedicines(allMedicines);
+        setHasMoreMedicines(allMedicines.length >= 20);
       }
       return;
     }
@@ -353,8 +416,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const timer = setTimeout(async () => {
       try {
         console.log(`[MediFind] Triggering live search for query: "${trimmed}"`);
-        const liveResults = await searchLiveMedicines(trimmed);
+        const liveResults = await searchLiveMedicines(trimmed, undefined, 0, 20);
         setMedicines(liveResults);
+        setHasMoreMedicines(liveResults.length >= 20);
       } catch (err) {
         console.error("[MediFind] Live search failed:", err);
       } finally {
@@ -546,52 +610,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const searchResults = await api.searchMedicines(
           "",
           userLocation ? userLocation.latitude : undefined,
-          userLocation ? userLocation.longitude : undefined
+          userLocation ? userLocation.longitude : undefined,
+          undefined,
+          0,
+          20
         );
 
         if (Array.isArray(searchResults) && searchResults.length > 0) {
-          const transformedMeds: Medicine[] = searchResults
-            .filter((item) => {
-              const pharma = item.pharmacy;
-              return pharma && (!pharma.status || pharma.status.toLowerCase() === "approved");
-            })
-            .map((item) => {
-              const med = item.medicine;
-              const pharma = item.pharmacy;
-              const inv = item.inventory;
-              const distKm = userLocation
-                ? calculateDistance(userLocation.latitude, userLocation.longitude, pharma.lat, pharma.lng)
-                : (item.distance_km ?? null);
-
-              return {
-                id: `${med.id}-${pharma.id}`,
-                rawMedicineId: med.id,
-                name: med.name,
-                genericName: med.generic_name || med.name,
-                strength: med.strength || med.dosage || "",
-                dosageForm: med.dosage_form || "",
-                routeOfAdministration: med.route_of_administration || "",
-                category: med.therapeutic_category || med.category || "General",
-                therapeuticCategory: med.therapeutic_category || med.category || "General",
-                manufacturer: med.manufacturer || "",
-                requiresPrescription: !!med.requires_prescription,
-                inStock: (inv?.stock_quantity ?? 0) > 0,
-                price: inv?.price ?? 15.0,
-                pharmacy: pharma.name,
-                pharmacyId: String(pharma.id),
-                distance: formatDistance(distKm),
-                distanceKm: distKm,
-                rating: 4.8,
-                reviews: 18,
-                description: med.description || "",
-                dosage: med.dosage || med.strength || "",
-                dosageInstructions: med.dosage_instructions || "",
-                precautions: med.precautions || "",
-                sideEffects: med.side_effects || "",
-                tags: med.tags || "",
-                imageUrl: med.image_url || undefined,
-              };
-            });
+          const transformedMeds = transformSearchResults(searchResults);
 
           if (userLocation) {
             transformedMeds.sort((a, b) => {
@@ -603,6 +629,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
           setAllMedicines(transformedMeds);
           setMedicines(transformedMeds);
+          setHasMoreMedicines(transformedMeds.length >= 20);
         } else {
           // Fallback to medicines catalog if search returned empty
           const catalogMeds = await api.getMedicines();
@@ -1085,6 +1112,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       savedPharmacies,
       toggleSavePharmacy,
       searchLiveMedicines,
+      hasMoreMedicines,
+      loadingMoreMedicines,
+      loadMoreMedicines,
       notifications,
       unreadCount,
       notificationsLoading,
@@ -1106,6 +1136,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       userLocation,
       locationPermission,
       savedPharmacies,
+      hasMoreMedicines,
+      loadingMoreMedicines,
+      loadMoreMedicines,
       notifications,
       unreadCount,
       notificationsLoading,
