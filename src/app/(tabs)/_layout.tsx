@@ -1,8 +1,23 @@
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { View, Platform } from "react-native";
+import { useApp } from "@/context/AppContext";
 
 export default function TabsLayout() {
+  const { reservations } = useApp();
+
+  const activeReservationsCount = reservations.filter((r) =>
+    [
+      "Pending Pharmacy Review",
+      "Approved",
+      "Reserved",
+      "Paid",
+      "Preparing",
+      "Out for Delivery",
+      "Ready for Pickup",
+    ].includes(r.status)
+  ).length;
+
   return (
     <Tabs
       screenOptions={{
@@ -51,8 +66,19 @@ export default function TabsLayout() {
         name="reservations"
         options={{
           title: "Reservations",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="receipt-outline" size={22} color={color} />
+          tabBarBadge: activeReservationsCount > 0 ? activeReservationsCount : undefined,
+          tabBarBadgeStyle: {
+            backgroundColor: "#0f766e",
+            color: "#ffffff",
+            fontSize: 10,
+            fontWeight: "800",
+            minWidth: 18,
+            height: 18,
+            borderRadius: 9,
+            lineHeight: Platform.OS === "android" ? 15 : 18,
+          },
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons name={focused ? "receipt" : "receipt-outline"} size={22} color={color} />
           ),
         }}
       />

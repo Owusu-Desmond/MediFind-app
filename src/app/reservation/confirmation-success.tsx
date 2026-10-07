@@ -1,5 +1,5 @@
-import React from "react";
-import { View, Text, TouchableOpacity, Alert } from "react-native";
+import React, { useEffect } from "react";
+import { View, Text, TouchableOpacity, Alert, BackHandler } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -11,6 +11,15 @@ export default function ConfirmationSuccessScreen() {
   const { reservations, markReservationPaid } = useApp();
   const { reservationId } = useLocalSearchParams<{ reservationId?: string }>();
   const reservation = reservations.find((item) => item.id === reservationId);
+
+  useEffect(() => {
+    const backAction = () => {
+      router.replace("/(tabs)/reservations");
+      return true;
+    };
+    const backHandler = BackHandler.addEventListener("hardwareBackPress", backAction);
+    return () => backHandler.remove();
+  }, []);
 
   const handlePay = () => {
     if (!reservation) {

@@ -17,7 +17,7 @@ export default function FinalReviewScreen() {
     if (medicine) {
       createReservation(medicine, selectedQuantity, "Today, 4:00 PM", "Prescription attached");
     }
-    router.push("/reservation/request-submitted" as never);
+    router.replace("/reservation/request-submitted" as never);
   };
 
 

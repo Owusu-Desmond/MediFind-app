@@ -20,7 +20,7 @@ export default function MockPaystackScreen() {
     const timer = setTimeout(async () => {
       if (reservationId && fulfillmentMethod) {
         await updateFulfillmentAndPayment(reservationId, fulfillmentMethod, "Pay Online", address);
-        router.push("/(tabs)/reservations" as never);
+        router.replace("/(tabs)/reservations" as never);
       }
     }, 2500);
 

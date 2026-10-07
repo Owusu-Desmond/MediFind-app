@@ -78,9 +78,8 @@ export default function HomeScreen() {
               />
             ) : (
               <View
-                className={`w-12 h-12 rounded-2xl items-center justify-center ${
-                  med.inStock ? "bg-teal-50" : "bg-slate-100"
-                }`}
+                className={`w-12 h-12 rounded-2xl items-center justify-center ${med.inStock ? "bg-teal-50" : "bg-slate-100"
+                  }`}
               >
                 <Ionicons
                   name="medkit"
@@ -127,16 +126,14 @@ export default function HomeScreen() {
                   </Text>
                 </View>
                 <View
-                  className={`px-3 py-1 rounded-full ${
-                    med.inStock
+                  className={`px-3 py-1 rounded-full ${med.inStock
                       ? "bg-emerald-50 border border-emerald-100"
                       : "bg-red-50 border border-red-100"
-                  }`}
+                    }`}
                 >
                   <Text
-                    className={`text-[10px] font-bold ${
-                      med.inStock ? "text-emerald-700" : "text-red-700"
-                    }`}
+                    className={`text-[10px] font-bold ${med.inStock ? "text-emerald-700" : "text-red-700"
+                      }`}
                   >
                     {med.inStock ? "In Stock" : "Out of Stock"}
                   </Text>
@@ -150,62 +147,9 @@ export default function HomeScreen() {
     [router]
   );
 
-  const renderHeader = useCallback(
+  const renderBannerAndCategories = useCallback(
     () => (
       <View>
-        {/* Top Bar */}
-        <View className="px-6 pt-4 pb-2">
-          <View className="flex-row items-center justify-between mb-1">
-            <View>
-              <Text className="text-slate-400 text-xs font-bold uppercase tracking-[0.2em]">
-                Welcome back 👋
-              </Text>
-              <Text className="text-slate-900 text-xl font-bold mt-1">
-                {user?.name?.split(" ")[0] ?? "Patient"}
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => router.push("/notifications")}
-              className="w-10 h-10 rounded-xl bg-white border border-slate-200 items-center justify-center shadow-sm relative"
-            >
-              <Ionicons name="notifications-outline" size={20} color="#0f766e" />
-              {unreadCount > 0 && (
-                <View className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-red-500 rounded-full items-center justify-center border-2 border-white">
-                  <Text className="text-white text-[9px] font-bold">
-                    {unreadCount > 9 ? "9+" : unreadCount}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          </View>
-
-          {/* Search Bar with live searching indicator */}
-          <View className="flex-row items-center bg-white border border-slate-200 rounded-2xl px-4 mt-4 shadow-sm">
-            {searchLoading ? (
-              <ActivityIndicator size="small" color="#0f766e" />
-            ) : (
-              <Ionicons name="search" size={18} color="#94a3b8" />
-            )}
-            <TextInput
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholder="Search medicines, brands, symptoms..."
-              placeholderTextColor="#94a3b8"
-              className="flex-1 py-3.5 px-3 text-sm text-slate-800"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            {searchQuery ? (
-              <TouchableOpacity
-                onPress={() => setSearchQuery("")}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Ionicons name="close-circle" size={18} color="#94a3b8" />
-              </TouchableOpacity>
-            ) : null}
-          </View>
-        </View>
-
         {/* Quick Stats Banner */}
         <View className="mx-6 mt-4 bg-primary rounded-[32px] p-5 flex-row items-center justify-between overflow-hidden">
           <View className="flex-1">
@@ -238,11 +182,10 @@ export default function HomeScreen() {
               <TouchableOpacity
                 key={cat.name}
                 onPress={() => setSelectedCategory(cat.name)}
-                className={`mr-2.5 px-4 py-2.5 rounded-2xl flex-row items-center gap-2 border ${
-                  selectedCategory === cat.name
+                className={`mr-2.5 px-4 py-2.5 rounded-2xl flex-row items-center gap-2 border ${selectedCategory === cat.name
                     ? "bg-primary border-primary"
                     : "bg-white border-slate-200"
-                }`}
+                  }`}
               >
                 <Ionicons
                   name={cat.icon as any}
@@ -250,9 +193,8 @@ export default function HomeScreen() {
                   color={selectedCategory === cat.name ? "white" : "#64748b"}
                 />
                 <Text
-                  className={`text-xs font-bold ${
-                    selectedCategory === cat.name ? "text-white" : "text-slate-600"
-                  }`}
+                  className={`text-xs font-bold ${selectedCategory === cat.name ? "text-white" : "text-slate-600"
+                    }`}
                 >
                   {cat.name}
                 </Text>
@@ -264,23 +206,13 @@ export default function HomeScreen() {
         {/* Results Counter */}
         <View className="px-6 mt-4 mb-3 flex-row items-center justify-between">
           <Text className="text-sm font-bold text-slate-800">
-            {filtered.length} medicine{filtered.length !== 1 ? "s" : ""} loaded
+            {filtered.length} medicine{filtered.length !== 1 ? "s" : ""}
           </Text>
           <Text className="text-xs text-slate-400 font-semibold">Sorted by distance</Text>
         </View>
       </View>
     ),
-    [
-      user?.name,
-      unreadCount,
-      searchLoading,
-      searchQuery,
-      setSearchQuery,
-      medicines,
-      selectedCategory,
-      filtered.length,
-      router,
-    ]
+    [medicines, selectedCategory, filtered.length]
   );
 
   const renderFooter = useCallback(() => {
@@ -326,11 +258,65 @@ export default function HomeScreen() {
   return (
     <SafeAreaView className="flex-1 bg-slate-50" edges={["top"]}>
       <StatusBar style="dark" />
+
+      {/* Fixed Header & Search Bar - Kept outside FlatList so typing never unmounts/resets */}
+      <View className="px-6 pt-4 pb-2 bg-slate-50 z-10">
+        <View className="flex-row items-center justify-between mb-1">
+          <View>
+            <Text className="text-slate-400 text-xs font-bold uppercase tracking-[0.2em]">
+              Welcome back 👋
+            </Text>
+            <Text className="text-slate-900 text-xl font-bold mt-1">
+              {user?.name?.split(" ")[0] ?? "Patient"}
+            </Text>
+          </View>
+          <TouchableOpacity
+            onPress={() => router.push("/notifications")}
+            className="w-10 h-10 rounded-xl bg-white border border-slate-200 items-center justify-center shadow-sm relative"
+          >
+            <Ionicons name="notifications-outline" size={20} color="#0f766e" />
+            {unreadCount > 0 && (
+              <View className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-red-500 rounded-full items-center justify-center border-2 border-white">
+                <Text className="text-white text-[9px] font-bold">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {/* Search Bar with live searching indicator */}
+        <View className="flex-row items-center bg-white border border-slate-200 rounded-2xl px-4 mt-4 shadow-sm">
+          {searchLoading ? (
+            <ActivityIndicator size="small" color="#0f766e" />
+          ) : (
+            <Ionicons name="search" size={18} color="#94a3b8" />
+          )}
+          <TextInput
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Search medicines, brands, symptoms..."
+            placeholderTextColor="#94a3b8"
+            className="flex-1 py-3.5 px-3 text-sm text-slate-800"
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          {searchQuery ? (
+            <TouchableOpacity
+              onPress={() => setSearchQuery("")}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="close-circle" size={18} color="#94a3b8" />
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      </View>
+
       <FlatList
         data={filtered}
         keyExtractor={(item) => item.id}
         renderItem={renderMedicineItem}
-        ListHeaderComponent={renderHeader}
+        ListHeaderComponent={renderBannerAndCategories}
         ListFooterComponent={renderFooter}
         ListEmptyComponent={renderEmpty}
         onEndReached={handleEndReached}

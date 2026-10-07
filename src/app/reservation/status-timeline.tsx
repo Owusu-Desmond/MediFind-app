@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { View, Text, TouchableOpacity, ScrollView, RefreshControl } from "react-native";
+import { View, Text, TouchableOpacity, ScrollView, RefreshControl, BackHandler } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -15,6 +15,15 @@ export default function StatusTimelineScreen() {
 
   useEffect(() => {
     refreshReservations();
+
+    // Prevent going back into creation/checkout form flow
+    const backAction = () => {
+      router.replace("/(tabs)/reservations");
+      return true;
+    };
+
+    const backHandler = BackHandler.addEventListener("hardwareBackPress", backAction);
+    return () => backHandler.remove();
   }, [reservationId]);
 
   const onRefresh = async () => {
@@ -35,7 +44,7 @@ export default function StatusTimelineScreen() {
     reservation?.paymentMethod === "Pay Online";
 
   let steps: { title: string; desc: string }[] = [];
-  
+
   if (reservation?.fulfillmentMethod === "Delivery") {
     steps = [
       { title: "Pending Pharmacy Review", desc: "Awaiting pharmacy confirmation" },
@@ -104,11 +113,7 @@ export default function StatusTimelineScreen() {
           <View className="flex-row items-center justify-between mb-4">
             <TouchableOpacity
               onPress={() => {
-                if (router.canGoBack()) {
-                  router.back();
-                } else {
-                  router.replace("/(tabs)/reservations");
-                }
+                router.replace("/(tabs)/reservations");
               }}
               className="w-10 h-10 rounded-xl bg-white border border-slate-200 items-center justify-center shadow-sm"
             >
@@ -158,11 +163,10 @@ export default function StatusTimelineScreen() {
                   </Text>
                 </View>
                 <View
-                  className={`px-3 py-1.5 rounded-full flex-row items-center gap-1.5 border ${
-                    isPaid
+                  className={`px-3 py-1.5 rounded-full flex-row items-center gap-1.5 border ${isPaid
                       ? "bg-emerald-50 border-emerald-100 text-emerald-700"
                       : "bg-amber-50 border-amber-100 text-amber-700"
-                  }`}
+                    }`}
                 >
                   <View className={`w-2 h-2 rounded-full ${isPaid ? "bg-emerald-500" : "bg-amber-500"}`} />
                   <Text className={`text-[11px] font-extrabold ${isPaid ? "text-emerald-700" : "text-amber-700"}`}>
@@ -230,7 +234,7 @@ export default function StatusTimelineScreen() {
                   className="mt-4 bg-primary py-3.5 rounded-2xl items-center flex-row justify-center gap-2 shadow-sm"
                 >
                   <Ionicons name="card-outline" size={18} color="white" />
-                  <Text className="text-white font-bold text-xs">Complete Paystack Payment</Text>
+                  <Text className="text-white font-bold text-xs">Complete Payment</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -248,9 +252,8 @@ export default function StatusTimelineScreen() {
                     <View key={step.title} className="flex-row items-start gap-4">
                       <View className="items-center">
                         <View
-                          className={`w-9 h-9 rounded-2xl items-center justify-center ${
-                            isDone ? "bg-primary" : "bg-slate-100"
-                          }`}
+                          className={`w-9 h-9 rounded-2xl items-center justify-center ${isDone ? "bg-primary" : "bg-slate-100"
+                            }`}
                         >
                           {isDone ? (
                             <Ionicons name="checkmark" size={18} color="white" />

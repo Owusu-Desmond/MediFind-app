@@ -10,6 +10,7 @@ import {
   getCurrentUserLocation,
   watchUserLocation,
 } from "@/services/location";
+import { mobileNotifications } from "@/services/notifications";
 
 export interface Medicine {
   id: string;
@@ -1000,7 +1001,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     try {
       const res = await api.getNotifications();
-      setNotifications(res.items || []);
+      const items = res.items || [];
+      const unread = items.filter((n) => !n.is_read);
+
+      // Trigger native phone notifications for unread items
+      if (!isRefresh) {
+        for (const notif of unread) {
+          mobileNotifications.triggerLocalNotification(
+            notif.title,
+            notif.message,
+            { notificationId: notif.id, referenceId: notif.reference_id, actionUrl: notif.action_url },
+            notif.id
+          );
+        }
+      }
+
+      setNotifications(items);
       setUnreadCount(res.unread_count || 0);
     } catch (e) {
       console.log("[AppContext] Error fetching notifications:", e);
@@ -1011,11 +1027,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   useEffect(() => {
+    // Request notification permissions on app launch
+    mobileNotifications.registerForNotificationsAsync();
+
     fetchNotifications();
 
     const interval = setInterval(() => {
       fetchNotifications();
-    }, 25000);
+    }, 15000);
 
     return () => clearInterval(interval);
   }, [fetchNotifications]);

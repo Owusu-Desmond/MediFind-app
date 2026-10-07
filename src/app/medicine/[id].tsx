@@ -69,22 +69,17 @@ export default function MedicineDetailScreen() {
       <ScrollView showsVerticalScrollIndicator={false} className="bg-slate-50" contentContainerStyle={{ paddingBottom: 120 }}>
         {hasMedicineImage ? (
           <>
-            {/* Full-bleed Product Photo Hero Card with 100% Full-Cover Image */}
-            <View className="mx-4 mt-2 rounded-[28px] overflow-hidden relative shadow-sm min-h-[260px] bg-slate-900">
-              <Image
-                source={{ uri: medicine.imageUrl }}
-                style={StyleSheet.absoluteFill}
-                resizeMode="cover"
-              />
-              {/* Vignette / Dark Gradient Overlays */}
-              <View style={StyleSheet.absoluteFill} className="bg-black/20" />
-              <View className="absolute inset-x-0 bottom-0 h-48 bg-black/70" />
-              <View style={StyleSheet.absoluteFill} className="bg-slate-950/20" />
+            {/* Clean Product Photo Card with Zero Dark Shadow Overlays */}
+            <View className="mx-4 mt-2 bg-white rounded-[28px] overflow-hidden border border-slate-100 shadow-sm relative">
+              <View className="h-64 w-full bg-slate-100 items-center justify-center relative overflow-hidden">
+                <Image
+                  source={{ uri: medicine.imageUrl }}
+                  className="w-full h-full"
+                  resizeMode="cover"
+                />
 
-              {/* Card Content with Padding */}
-              <View className="flex-1 justify-between p-4 min-h-[260px]">
-                {/* Top Navigation Row floating on image */}
-                <View className="flex-row items-center justify-between z-10">
+                {/* Top Floating Navigation & Badges */}
+                <View className="absolute top-3.5 inset-x-3.5 flex-row items-center justify-between z-10">
                   <TouchableOpacity
                     onPress={() => {
                       if (router.canGoBack()) {
@@ -93,70 +88,89 @@ export default function MedicineDetailScreen() {
                         router.replace("/(tabs)/home");
                       }
                     }}
-                    className="w-10 h-10 rounded-full bg-black/40 items-center justify-center border border-white/20"
+                    className="w-10 h-10 rounded-full bg-white/90 items-center justify-center shadow-md border border-slate-200/60"
                   >
-                    <Ionicons name="arrow-back" size={20} color="white" />
+                    <Ionicons name="arrow-back" size={20} color="#0f172a" />
                   </TouchableOpacity>
 
-                  {/* Floating Badges */}
                   <View className="flex-row items-center gap-1.5">
                     {medicine.requiresPrescription && (
-                      <View className="bg-amber-500/90 px-2.5 py-1 rounded-full flex-row items-center gap-1 border border-white/20">
+                      <View className="bg-amber-500 px-2.5 py-1 rounded-full flex-row items-center gap-1 shadow-sm">
                         <Ionicons name="document-text" size={11} color="white" />
                         <Text className="text-white text-xs font-bold">Rx Only</Text>
                       </View>
                     )}
-                    <View className={`px-3 py-1 rounded-full flex-row items-center gap-1.5 shadow-sm ${medicine.inStock ? "bg-emerald-600" : "bg-red-600"}`}>
-                      <Ionicons name={medicine.inStock ? "checkmark-circle" : "close-circle"} size={13} color="white" />
+                    <View
+                      className={`px-3 py-1 rounded-full flex-row items-center gap-1.5 shadow-sm ${
+                        medicine.inStock ? "bg-emerald-600" : "bg-red-600"
+                      }`}
+                    >
+                      <Ionicons
+                        name={medicine.inStock ? "checkmark-circle" : "close-circle"}
+                        size={13}
+                        color="white"
+                      />
                       <Text className="text-white text-xs font-bold">
                         {medicine.inStock ? "In Stock" : "Out of Stock"}
                       </Text>
                     </View>
                   </View>
                 </View>
+              </View>
 
-                {/* Bottom Details */}
-                <View className="z-10 mt-12 space-y-1">
-                  <Text className="text-white text-2xl sm:text-3xl font-black leading-tight tracking-tight drop-shadow" numberOfLines={2}>
-                    {medicine.name}
+              {/* Medicine Title, Generic Name, & Category Chips */}
+              <View className="p-5">
+                <Text className="text-2xl font-bold text-slate-900 leading-tight">
+                  {medicine.name}
+                </Text>
+                {medicine.genericName && medicine.genericName !== medicine.name ? (
+                  <Text className="text-slate-500 text-xs font-semibold mt-1">
+                    Generic: {medicine.genericName}
                   </Text>
-                  {medicine.genericName && medicine.genericName !== medicine.name ? (
-                    <Text className="text-white/85 text-xs font-semibold mt-0.5">
-                      Generic: {medicine.genericName}
-                    </Text>
-                  ) : null}
+                ) : null}
 
-                  <View className="flex-row items-center gap-2 mt-1.5 flex-wrap">
-                    <View className="bg-black/40 px-2.5 py-0.5 rounded-full border border-white/20">
-                      <Text className="text-white text-[11px] font-bold">{medicine.category || "General"}</Text>
-                    </View>
-                    {medicine.dosageForm ? (
-                      <View className="bg-black/40 px-2.5 py-0.5 rounded-full border border-white/20">
-                        <Text className="text-white text-[11px] font-bold">{medicine.dosageForm}</Text>
-                      </View>
-                    ) : null}
-                    {medicine.strength || medicine.dosage ? (
-                      <View className="bg-black/40 px-2.5 py-0.5 rounded-full border border-white/20">
-                        <Text className="text-white text-[11px] font-mono font-bold">{medicine.strength || medicine.dosage}</Text>
-                      </View>
-                    ) : null}
+                <View className="flex-row items-center gap-2 mt-3.5 flex-wrap">
+                  <View className="bg-teal-50 border border-teal-100 px-3 py-1 rounded-full">
+                    <Text className="text-primary text-xs font-bold">
+                      {medicine.category || "General"}
+                    </Text>
                   </View>
+                  {medicine.dosageForm ? (
+                    <View className="bg-slate-100 border border-slate-200 px-3 py-1 rounded-full">
+                      <Text className="text-slate-700 text-xs font-bold">
+                        {medicine.dosageForm}
+                      </Text>
+                    </View>
+                  ) : null}
+                  {medicine.strength || medicine.dosage ? (
+                    <View className="bg-slate-100 border border-slate-200 px-3 py-1 rounded-full">
+                      <Text className="text-slate-700 text-xs font-mono font-bold">
+                        {medicine.strength || medicine.dosage}
+                      </Text>
+                    </View>
+                  ) : null}
                 </View>
               </View>
             </View>
 
-            {/* Price + Rating Card (Storefront/Image mode) */}
+            {/* Price + Rating Card */}
             <View className="mx-4 mt-3 bg-white rounded-2xl p-4 border border-slate-100 shadow-sm flex-row items-center justify-between">
               <View>
-                <Text className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Price Per Unit</Text>
-                <Text className="text-2xl font-bold text-primary mt-0.5">GH₵{medicine.price.toFixed(2)}</Text>
+                <Text className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  Price Per Unit
+                </Text>
+                <Text className="text-2xl font-bold text-primary mt-0.5">
+                  GH₵{medicine.price.toFixed(2)}
+                </Text>
               </View>
               <View className="items-end">
                 <View className="flex-row items-center gap-1">
                   <Ionicons name="star" size={16} color="#f59e0b" />
                   <Text className="text-lg font-bold text-slate-800">{medicine.rating}</Text>
                 </View>
-                <Text className="text-[10px] text-slate-400 font-semibold">{medicine.reviews} patient reviews</Text>
+                <Text className="text-[10px] text-slate-400 font-semibold">
+                  {medicine.reviews} patient reviews
+                </Text>
               </View>
             </View>
           </>

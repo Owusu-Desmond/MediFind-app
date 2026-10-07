@@ -39,10 +39,10 @@ export default function CreateRequestScreen() {
       setSubmitting(true);
       try {
         await createReservation(medicine, qty, pickupDate, notes);
-        router.push("/reservation/request-submitted" as never);
+        router.replace("/reservation/request-submitted" as never);
       } catch (err) {
         // Continue anyway
-        router.push("/reservation/request-submitted" as never);
+        router.replace("/reservation/request-submitted" as never);
       } finally {
         setSubmitting(false);
       }
