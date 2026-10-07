@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { api, getStoredToken, BackendReservation, BackendMedicine, BackendPharmacy, BackendUser, BackendNotification } from "@/services/api";
 import { Coordinates, calculateDistance, formatDistance } from "@/utils/distance";
@@ -331,8 +331,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     [userLocation]
   );
 
+  const searchAbortControllerRef = useRef<AbortController | null>(null);
+
   const searchLiveMedicines = useCallback(
-    async (query: string, category?: string, skip?: number, limit?: number): Promise<Medicine[]> => {
+    async (query: string, category?: string, skip?: number, limit?: number, signal?: AbortSignal): Promise<Medicine[]> => {
       try {
         const searchResults = await api.searchMedicines(
           query,
@@ -340,11 +342,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           userLocation ? userLocation.longitude : undefined,
           category,
           skip ?? 0,
-          limit ?? 20
+          limit ?? 20,
+          signal
         );
 
         return transformSearchResults(searchResults);
-      } catch {
+      } catch (err: any) {
+        if (err?.name === "AbortError" || signal?.aborted) {
+          // cleanly ignore cancelled search
+          return [];
+        }
         return [];
       }
     },
@@ -404,6 +411,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   useEffect(() => {
     const trimmed = searchQuery.trim();
+
+    // Abort any prior pending search immediately when query changes
+    if (searchAbortControllerRef.current) {
+      searchAbortControllerRef.current.abort();
+      searchAbortControllerRef.current = null;
+    }
+
     if (!trimmed) {
       setSearchLoading(false);
       if (allMedicines.length > 0) {
@@ -414,21 +428,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     setSearchLoading(true);
+    const controller = new AbortController();
+    searchAbortControllerRef.current = controller;
+
     const timer = setTimeout(async () => {
       try {
-        console.log(`[MediFind] Triggering live search for query: "${trimmed}"`);
-        const liveResults = await searchLiveMedicines(trimmed, undefined, 0, 20);
-        setMedicines(liveResults);
-        setHasMoreMedicines(liveResults.length >= 20);
-      } catch (err) {
-        console.error("[MediFind] Live search failed:", err);
+        const liveResults = await searchLiveMedicines(trimmed, undefined, 0, 20, controller.signal);
+        if (!controller.signal.aborted) {
+          setMedicines(liveResults);
+          setHasMoreMedicines(liveResults.length >= 20);
+        }
+      } catch (err: any) {
+        if (err?.name !== "AbortError" && !controller.signal.aborted) {
+          console.error("[MediFind] Live search failed:", err);
+        }
       } finally {
-        setSearchLoading(false);
+        if (!controller.signal.aborted) {
+          setSearchLoading(false);
+        }
       }
-    }, 250);
+    }, 200);
 
     return () => {
       clearTimeout(timer);
+      controller.abort();
     };
   }, [searchQuery, allMedicines, searchLiveMedicines]);
 
@@ -558,129 +581,73 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       setLoading(true);
 
-      // 1. Fetch live Pharmacies from backend (Approved only for patient app)
-      let loadedPharmacies: Pharmacy[] = [];
-      try {
-        const backendPharmacies = await api.getPharmacies("Approved");
-        if (Array.isArray(backendPharmacies) && backendPharmacies.length > 0) {
-          loadedPharmacies = backendPharmacies
-            .filter((bp) => !bp.status || bp.status.toLowerCase() === "approved")
-            .map((bp) => {
-              const distKm = userLocation
-                ? calculateDistance(userLocation.latitude, userLocation.longitude, bp.lat, bp.lng)
-                : null;
-              return {
-                id: String(bp.id),
-                name: bp.name,
-                address: bp.location,
-                distance: formatDistance(distKm),
-                distanceKm: distKm,
-                rating: 4.8,
-                reviews: 24,
-                isOpen: bp.is_open !== undefined ? bp.is_open : isPharmacyOpen(bp.opening_hours),
-                openHours: bp.opening_hours || "8:00 AM - 9:00 PM",
-                phone: bp.phone || "+233 24 000 0000",
-                verified: bp.verified ?? true,
-                status: bp.status,
-                lat: bp.lat,
-                lng: bp.lng,
-                imageUrl: bp.image_url || undefined,
-                logoUrl: bp.logo_url || undefined,
-              };
-            });
-
-          // Sort closest first if location is available
-          if (userLocation) {
-            loadedPharmacies.sort((a, b) => {
-              if (a.distanceKm === null || a.distanceKm === undefined) return 1;
-              if (b.distanceKm === null || b.distanceKm === undefined) return -1;
-              return a.distanceKm - b.distanceKm;
-            });
-          }
-
-          setPharmacies(loadedPharmacies);
-        } else {
-          setPharmacies([]);
-        }
-      } catch (err) {
-        setPharmacies([]);
-      }
-
-      // 2. Fetch live Medicines from backend inventory/search
-      try {
-        const searchResults = await api.searchMedicines(
+      // Fetch Pharmacies, Medicines, and Reservations
+      const [pharmaciesResult, searchResult] = await Promise.allSettled([
+        api.getPharmacies("Approved"),
+        api.searchMedicines(
           "",
           userLocation ? userLocation.latitude : undefined,
           userLocation ? userLocation.longitude : undefined,
           undefined,
           0,
           20
-        );
+        ),
+      ]);
 
-        if (Array.isArray(searchResults) && searchResults.length > 0) {
-          const transformedMeds = transformSearchResults(searchResults);
-
-          if (userLocation) {
-            transformedMeds.sort((a, b) => {
-              if (a.distanceKm === null || a.distanceKm === undefined) return 1;
-              if (b.distanceKm === null || b.distanceKm === undefined) return -1;
-              return a.distanceKm - b.distanceKm;
-            });
-          }
-
-          setAllMedicines(transformedMeds);
-          setMedicines(transformedMeds);
-          setHasMoreMedicines(transformedMeds.length >= 20);
-        } else {
-          // Fallback to medicines catalog if search returned empty
-          const catalogMeds = await api.getMedicines();
-          if (Array.isArray(catalogMeds) && catalogMeds.length > 0) {
-            const firstPharma = loadedPharmacies.length > 0 ? loadedPharmacies[0] : null;
-            const distKm = userLocation && firstPharma
-              ? calculateDistance(userLocation.latitude, userLocation.longitude, firstPharma.lat, firstPharma.lng)
+      let loadedPharmacies: Pharmacy[] = [];
+      if (pharmaciesResult.status === "fulfilled" && Array.isArray(pharmaciesResult.value) && pharmaciesResult.value.length > 0) {
+        loadedPharmacies = pharmaciesResult.value
+          .filter((bp) => !bp.status || bp.status.toLowerCase() === "approved")
+          .map((bp) => {
+            const distKm = userLocation
+              ? calculateDistance(userLocation.latitude, userLocation.longitude, bp.lat, bp.lng)
               : null;
-
-            const transformedMeds: Medicine[] = catalogMeds.map((med) => ({
-              id: String(med.id),
-              rawMedicineId: med.id,
-              name: med.name,
-              genericName: med.generic_name || med.name,
-              strength: med.strength || med.dosage || "",
-              dosageForm: med.dosage_form || "",
-              routeOfAdministration: med.route_of_administration || "",
-              category: med.therapeutic_category || med.category || "General",
-              therapeuticCategory: med.therapeutic_category || med.category || "General",
-              manufacturer: med.manufacturer || "",
-              requiresPrescription: !!med.requires_prescription,
-              inStock: true,
-              price: 15.0,
-              pharmacy: firstPharma?.name || "Verified Pharmacy",
-              pharmacyId: String(firstPharma?.id || "1"),
+            return {
+              id: String(bp.id),
+              name: bp.name,
+              address: bp.location,
               distance: formatDistance(distKm),
               distanceKm: distKm,
               rating: 4.8,
-              reviews: 15,
-              description: med.description || "",
-              dosage: med.dosage || med.strength || "",
-              dosageInstructions: med.dosage_instructions || "",
-              precautions: med.precautions || "",
-              sideEffects: med.side_effects || "",
-              tags: med.tags || "",
-              imageUrl: med.image_url || undefined,
-            }));
-            setAllMedicines(transformedMeds);
-            setMedicines(transformedMeds);
-          } else {
-            setAllMedicines([]);
-            setMedicines([]);
-          }
+              reviews: 24,
+              isOpen: bp.is_open !== undefined ? bp.is_open : isPharmacyOpen(bp.opening_hours),
+              openHours: bp.opening_hours || "8:00 AM - 9:00 PM",
+              phone: bp.phone || "+233 24 000 0000",
+              verified: bp.verified ?? true,
+              status: bp.status,
+              lat: bp.lat,
+              lng: bp.lng,
+              imageUrl: bp.image_url || undefined,
+              logoUrl: bp.logo_url || undefined,
+            };
+          });
+
+        if (userLocation) {
+          loadedPharmacies.sort((a, b) => {
+            if (a.distanceKm === null || a.distanceKm === undefined) return 1;
+            if (b.distanceKm === null || b.distanceKm === undefined) return -1;
+            return a.distanceKm - b.distanceKm;
+          });
         }
-      } catch (err) {
-        setMedicines([]);
+        setPharmacies(loadedPharmacies);
       }
 
-      // 3. Fetch Reservations from backend
-      await refreshReservations(loadedPharmacies);
+      if (searchResult.status === "fulfilled" && Array.isArray(searchResult.value) && searchResult.value.length > 0) {
+        const transformedMeds = transformSearchResults(searchResult.value);
+        if (userLocation) {
+          transformedMeds.sort((a, b) => {
+            if (a.distanceKm === null || a.distanceKm === undefined) return 1;
+            if (b.distanceKm === null || b.distanceKm === undefined) return -1;
+            return a.distanceKm - b.distanceKm;
+          });
+        }
+        setAllMedicines(transformedMeds);
+        setMedicines(transformedMeds);
+        setHasMoreMedicines(transformedMeds.length >= 20);
+      }
+
+      // Refresh reservations concurrently
+      refreshReservations(loadedPharmacies).catch(() => { });
     } catch (err) {
       // ignore
     } finally {
@@ -732,8 +699,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
       setUser(loggedUser);
       await AsyncStorage.setItem("mf_user_data", JSON.stringify(loggedUser));
-      await refreshData();
-      await fetchNotifications();
+
+      // Sync data in background without blocking the login screen transition
+      refreshData().catch(() => { });
+      fetchNotifications().catch(() => { });
       return true;
     } catch (err: any) {
       throw err;
@@ -774,7 +743,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
       setUser(registeredUser);
       await AsyncStorage.setItem("mf_user_data", JSON.stringify(registeredUser));
-      await refreshData();
+
+      // Sync in background without blocking screen transition
+      refreshData().catch(() => { });
+      fetchNotifications().catch(() => { });
       return true;
     } catch (err) {
       throw err;

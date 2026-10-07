@@ -225,7 +225,8 @@ export const api = {
     lng?: number,
     category?: string,
     skip?: number,
-    limit?: number
+    limit?: number,
+    signal?: AbortSignal
   ) {
     let url = `/api/medicines/search?q=${encodeURIComponent(q)}`;
     if (lat !== undefined && lng !== undefined) {
@@ -245,7 +246,7 @@ export const api = {
       pharmacy: BackendPharmacy;
       inventory: { id: number; price: number; stock_quantity: number; status: string; is_available?: boolean };
       distance_km?: number;
-    }>>(url);
+    }>>(url, { signal });
   },
 
   async getPharmacies(status?: string) {
