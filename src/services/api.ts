@@ -360,5 +360,73 @@ export const api = {
       method: "POST",
     });
   },
+
+  // ==========================================
+  // Centralized Notifications
+  // ==========================================
+
+  async getNotifications(unreadOnly = false, limit = 50, offset = 0) {
+    const params = new URLSearchParams();
+    if (unreadOnly) params.append("unread_only", "true");
+    params.append("limit", limit.toString());
+    params.append("offset", offset.toString());
+
+    return fetchApi<NotificationListResponse>(`/notifications?${params.toString()}`);
+  },
+
+  async getUnreadNotificationCount() {
+    return fetchApi<{ unread_count: number }>("/notifications/unread-count");
+  },
+
+  async markNotificationRead(notificationId: number) {
+    return fetchApi<BackendNotification>(`/notifications/${notificationId}/read`, {
+      method: "PATCH",
+    });
+  },
+
+  async markAllNotificationsRead() {
+    return fetchApi<{ success: boolean; message: string; marked_count: number }>("/notifications/mark-all-read", {
+      method: "POST",
+    });
+  },
+
+  async deleteNotification(notificationId: number) {
+    return fetchApi<void>(`/notifications/${notificationId}`, {
+      method: "DELETE",
+    });
+  },
+
+  async clearAllNotifications(readOnly = false) {
+    return fetchApi<{ success: boolean; message: string; cleared_count: number }>(
+      `/notifications/clear-all?read_only=${readOnly}`,
+      {
+        method: "DELETE",
+      }
+    );
+  },
 };
+
+export interface BackendNotification {
+  id: number;
+  recipient_type: string;
+  recipient_user_id?: number;
+  recipient_pharmacy_id?: number;
+  notification_type: string;
+  title: string;
+  message: string;
+  priority?: "LOW" | "NORMAL" | "HIGH" | "URGENT";
+  reference_type?: string;
+  reference_id?: string;
+  action_url?: string;
+  is_read: boolean;
+  read_at?: string;
+  created_at: string;
+}
+
+export interface NotificationListResponse {
+  total: number;
+  unread_count: number;
+  items: BackendNotification[];
+}
+
 

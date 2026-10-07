@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { View, Text, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useApp } from "@/context/AppContext";
@@ -28,6 +29,7 @@ export default function MockPaystackScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-white items-center justify-center px-6">
+      <StatusBar style="dark" />
       <View className="items-center justify-center mb-8">
         <View className="w-24 h-24 rounded-full bg-blue-50 items-center justify-center mb-6">
           <Ionicons name="card" size={48} color="#0284c7" />

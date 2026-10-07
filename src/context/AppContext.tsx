@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { api, getStoredToken, BackendReservation, BackendMedicine, BackendPharmacy, BackendUser } from "@/services/api";
+import { api, getStoredToken, BackendReservation, BackendMedicine, BackendPharmacy, BackendUser, BackendNotification } from "@/services/api";
 import { Coordinates, calculateDistance, formatDistance } from "@/utils/distance";
 import { isPharmacyOpen } from "@/utils/date";
 import {
@@ -148,6 +148,15 @@ interface AppContextType {
   savedPharmacies: string[];
   toggleSavePharmacy: (id: string) => void;
   searchLiveMedicines: (query: string, category?: string) => Promise<Medicine[]>;
+  notifications: BackendNotification[];
+  unreadCount: number;
+  notificationsLoading: boolean;
+  notificationsRefreshing: boolean;
+  refreshNotifications: () => Promise<void>;
+  markNotificationRead: (id: number) => Promise<void>;
+  markAllNotificationsRead: () => Promise<void>;
+  deleteNotification: (id: number) => Promise<void>;
+  clearAllNotifications: (readOnly?: boolean) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -240,6 +249,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [searchLoading, setSearchLoading] = useState(false);
   const [savedPharmacies, setSavedPharmacies] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [notifications, setNotifications] = useState<BackendNotification[]>([]);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [notificationsLoading, setNotificationsLoading] = useState<boolean>(false);
+  const [notificationsRefreshing, setNotificationsRefreshing] = useState<boolean>(false);
 
   // Live GPS Location state
   const [userLocation, setUserLocation] = useState<Coordinates | null>(null);
@@ -692,6 +705,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setUser(loggedUser);
       await AsyncStorage.setItem("mf_user_data", JSON.stringify(loggedUser));
       await refreshData();
+      await fetchNotifications();
       return true;
     } catch (err: any) {
       throw err;
@@ -706,6 +720,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch { }
     setUser(null);
     setReservations([]);
+    setNotifications([]);
+    setUnreadCount(0);
     await AsyncStorage.removeItem("mf_user_data");
     await AsyncStorage.removeItem("mf_access_token");
     await AsyncStorage.removeItem("mf_reservations");
@@ -938,46 +954,175 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const toggleSavePharmacy = (id: string) => {
+  const toggleSavePharmacy = useCallback((id: string) => {
     setSavedPharmacies((prev) =>
       prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]
     );
-  };
+  }, []);
+
+  const fetchNotifications = useCallback(async (isRefresh = false) => {
+    const token = await getStoredToken();
+    if (!token) {
+      setNotifications([]);
+      setUnreadCount(0);
+      return;
+    }
+
+    if (isRefresh) setNotificationsRefreshing(true);
+    else setNotificationsLoading(true);
+
+    try {
+      const res = await api.getNotifications();
+      setNotifications(res.items || []);
+      setUnreadCount(res.unread_count || 0);
+    } catch (e) {
+      console.log("[AppContext] Error fetching notifications:", e);
+    } finally {
+      setNotificationsLoading(false);
+      setNotificationsRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchNotifications();
+
+    const interval = setInterval(() => {
+      fetchNotifications();
+    }, 25000);
+
+    return () => clearInterval(interval);
+  }, [fetchNotifications]);
+
+  const markNotificationRead = useCallback(async (id: number) => {
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, is_read: true, read_at: new Date().toISOString() } : n))
+    );
+    setUnreadCount((prev) => Math.max(0, prev - 1));
+
+    try {
+      await api.markNotificationRead(id);
+    } catch (e) {
+      console.log("[AppContext] Error marking notification read:", e);
+      fetchNotifications();
+    }
+  }, [fetchNotifications]);
+
+  const markAllNotificationsRead = useCallback(async () => {
+    setNotifications((prev) =>
+      prev.map((n) => ({ ...n, is_read: true, read_at: new Date().toISOString() }))
+    );
+    setUnreadCount(0);
+
+    try {
+      await api.markAllNotificationsRead();
+    } catch (e) {
+      console.log("[AppContext] Error marking all notifications read:", e);
+      fetchNotifications();
+    }
+  }, [fetchNotifications]);
+
+  const deleteNotification = useCallback(async (id: number) => {
+    const target = notifications.find((n) => n.id === id);
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+    if (target && !target.is_read) {
+      setUnreadCount((prev) => Math.max(0, prev - 1));
+    }
+
+    try {
+      await api.deleteNotification(id);
+    } catch (e) {
+      console.log("[AppContext] Error deleting notification:", e);
+      fetchNotifications();
+    }
+  }, [notifications, fetchNotifications]);
+
+  const clearAllNotifications = useCallback(async (readOnly = false) => {
+    if (readOnly) {
+      setNotifications((prev) => prev.filter((n) => !n.is_read));
+    } else {
+      setNotifications([]);
+      setUnreadCount(0);
+    }
+
+    try {
+      await api.clearAllNotifications(readOnly);
+    } catch (e) {
+      console.log("[AppContext] Error clearing notifications:", e);
+      fetchNotifications();
+    }
+  }, [fetchNotifications]);
+
+  const refreshNotifications = useCallback(() => fetchNotifications(true), [fetchNotifications]);
+
+  const contextValue = useMemo<AppContextType>(
+    () => ({
+      user,
+      medicines,
+      pharmacies,
+      reservations,
+      loading,
+      searchLoading,
+      searchQuery,
+      setSearchQuery,
+      userLocation,
+      locationPermission,
+      requestLocationAccess,
+      login,
+      logout,
+      register,
+      createReservation,
+      approveReservation,
+      updateFulfillmentAndPayment,
+      initializePaystackPayment,
+      verifyPaystackPayment,
+      markReservationPaid,
+      advanceReservationStatus,
+      cancelReservation,
+      clearReservation,
+      clearAllFinishedReservations,
+      refreshReservations,
+      refreshData,
+      savedPharmacies,
+      toggleSavePharmacy,
+      searchLiveMedicines,
+      notifications,
+      unreadCount,
+      notificationsLoading,
+      notificationsRefreshing,
+      refreshNotifications,
+      markNotificationRead,
+      markAllNotificationsRead,
+      deleteNotification,
+      clearAllNotifications,
+    }),
+    [
+      user,
+      medicines,
+      pharmacies,
+      reservations,
+      loading,
+      searchLoading,
+      searchQuery,
+      userLocation,
+      locationPermission,
+      savedPharmacies,
+      notifications,
+      unreadCount,
+      notificationsLoading,
+      notificationsRefreshing,
+      refreshNotifications,
+      markNotificationRead,
+      markAllNotificationsRead,
+      deleteNotification,
+      clearAllNotifications,
+      searchLiveMedicines,
+      refreshReservations,
+      toggleSavePharmacy,
+    ]
+  );
 
   return (
-    <AppContext.Provider
-      value={{
-        user,
-        medicines,
-        pharmacies,
-        reservations,
-        loading,
-        searchLoading,
-        searchQuery,
-        setSearchQuery,
-        userLocation,
-        locationPermission,
-        requestLocationAccess,
-        login,
-        logout,
-        register,
-        createReservation,
-        approveReservation,
-        updateFulfillmentAndPayment,
-        initializePaystackPayment,
-        verifyPaystackPayment,
-        markReservationPaid,
-        advanceReservationStatus,
-        cancelReservation,
-        clearReservation,
-        clearAllFinishedReservations,
-        refreshReservations,
-        refreshData,
-        savedPharmacies,
-        toggleSavePharmacy,
-        searchLiveMedicines,
-      }}
-    >
+    <AppContext.Provider value={contextValue}>
       {children}
     </AppContext.Provider>
   );
@@ -987,5 +1132,21 @@ export const useApp = () => {
   const context = useContext(AppContext);
   if (!context) throw new Error("useApp must be used within an AppProvider");
   return context;
+};
+
+export const useNotifications = () => {
+  const context = useContext(AppContext);
+  if (!context) throw new Error("useNotifications must be used within an AppProvider");
+  return {
+    notifications: context.notifications,
+    unreadCount: context.unreadCount,
+    loading: context.notificationsLoading,
+    refreshing: context.notificationsRefreshing,
+    refreshNotifications: context.refreshNotifications,
+    markNotificationRead: context.markNotificationRead,
+    markAllNotificationsRead: context.markAllNotificationsRead,
+    deleteNotification: context.deleteNotification,
+    clearAllNotifications: context.clearAllNotifications,
+  };
 };
 

@@ -8,11 +8,13 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
-import { useApp } from "@/context/AppContext";
+import { useApp, useNotifications } from "@/context/AppContext";
 
 export default function ProfileScreen() {
   const { user, logout, reservations, savedPharmacies } = useApp();
+  const { unreadCount } = useNotifications();
   const router = useRouter();
 
   const handleLogout = () => {
@@ -41,7 +43,13 @@ export default function ProfileScreen() {
     {
       section: "Preferences",
       items: [
-        { icon: "notifications-outline" as const, label: "Notifications", color: "#ef4444" },
+        {
+          icon: "notifications-outline" as const,
+          label: "Notifications",
+          color: "#ef4444",
+          badge: unreadCount > 0 ? `${unreadCount} new` : undefined,
+          action: () => router.push("/notifications"),
+        },
         { icon: "moon-outline" as const, label: "Dark Mode", color: "#8b5cf6" },
         { icon: "language-outline" as const, label: "Language", color: "#14b8a6", badge: "EN" },
       ],
@@ -59,10 +67,12 @@ export default function ProfileScreen() {
   type MenuItem = (typeof menuItems)[number]["items"][number] & { badge?: string };
 
   return (
-    <SafeAreaView className="flex-1 bg-slate-50" edges={["top"]}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 32 }}>
-        {/* Profile Header */}
-        <View className="bg-primary pt-6 pb-10 px-6 rounded-b-[40px]">
+    <SafeAreaView className="flex-1 bg-primary" edges={["top"]}>
+      <StatusBar style="light" />
+      <View className="flex-1 bg-slate-50">
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 32 }}>
+          {/* Profile Header */}
+          <View className="bg-primary pt-3 pb-8 px-6 rounded-b-[40px]">
           <Text className="text-white/60 text-xs font-bold uppercase tracking-widest mb-4">My Profile</Text>
 
           <View className="flex-row items-center gap-4">
@@ -111,6 +121,7 @@ export default function ProfileScreen() {
                 {section.items.map((item, i) => (
                   <TouchableOpacity
                     key={item.label}
+                    onPress={() => ((item as any).action ? (item as any).action() : null)}
                     activeOpacity={0.6}
                     className={`flex-row items-center px-4 py-4 ${
                       i < section.items.length - 1 ? "border-b border-slate-100" : ""
@@ -150,6 +161,7 @@ export default function ProfileScreen() {
           </Text>
         </View>
       </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }

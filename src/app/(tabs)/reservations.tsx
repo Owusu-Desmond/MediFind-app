@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { useApp, Reservation } from "@/context/AppContext";
 import { formatReservationDateTime, formatRelativeTime } from "@/utils/date";
@@ -133,6 +134,7 @@ export default function ReservationsScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-slate-50" edges={["top"]}>
+      <StatusBar style="dark" />
       {/* Header */}
       <View className="px-6 pt-4 pb-2 flex-row items-center justify-between">
         <View className="flex-1 pr-2">

@@ -12,8 +12,9 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
-import { useApp } from "@/context/AppContext";
+import { useApp, useNotifications } from "@/context/AppContext";
 
 const CATEGORIES = [
   { name: "All", icon: "grid-outline" },
@@ -27,6 +28,7 @@ const CATEGORIES = [
 
 export default function HomeScreen() {
   const { user, medicines, searchQuery, setSearchQuery, searchLoading, refreshData } = useApp();
+  const { unreadCount } = useNotifications();
   const router = useRouter();
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [refreshing, setRefreshing] = useState(false);
@@ -44,6 +46,7 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-slate-50" edges={["top"]}>
+      <StatusBar style="dark" />
       {/* Header */}
       <View className="px-6 pt-4 pb-2">
         <View className="flex-row items-center justify-between mb-1">
@@ -55,8 +58,18 @@ export default function HomeScreen() {
               {user?.name?.split(" ")[0] ?? "Patient"}
             </Text>
           </View>
-          <TouchableOpacity className="w-10 h-10 rounded-xl bg-white border border-slate-200 items-center justify-center shadow-sm">
+          <TouchableOpacity
+            onPress={() => router.push("/notifications")}
+            className="w-10 h-10 rounded-xl bg-white border border-slate-200 items-center justify-center shadow-sm relative"
+          >
             <Ionicons name="notifications-outline" size={20} color="#0f766e" />
+            {unreadCount > 0 && (
+              <View className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-red-500 rounded-full items-center justify-center border-2 border-white">
+                <Text className="text-white text-[9px] font-bold">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
 

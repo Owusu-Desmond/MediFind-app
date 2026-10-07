@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, TouchableOpacity, ActivityIndicator, Alert, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useApp } from "@/context/AppContext";
@@ -141,6 +142,7 @@ export default function PaystackCheckoutScreen() {
   if (loading || verifying) {
     return (
       <SafeAreaView className="flex-1 bg-white items-center justify-center px-6">
+        <StatusBar style="dark" />
         <View className="w-20 h-20 rounded-3xl bg-teal-50 items-center justify-center mb-6">
           <Ionicons name="card" size={40} color="#0f766e" />
         </View>
@@ -160,6 +162,7 @@ export default function PaystackCheckoutScreen() {
   if (error) {
     return (
       <SafeAreaView className="flex-1 bg-white items-center justify-center px-6">
+        <StatusBar style="dark" />
         <View className="w-16 h-16 rounded-full bg-rose-50 items-center justify-center mb-4">
           <Ionicons name="alert-circle" size={36} color="#e11d48" />
         </View>
@@ -179,6 +182,7 @@ export default function PaystackCheckoutScreen() {
   if (isMock || Platform.OS === "web" || !WebView) {
     return (
       <SafeAreaView className="flex-1 bg-slate-50">
+        <StatusBar style="dark" />
         <View className="flex-row items-center justify-between px-6 py-4 bg-white border-b border-slate-100">
           <TouchableOpacity onPress={handleCancel} className="p-2">
             <Ionicons name="close" size={24} color="#64748b" />
@@ -241,6 +245,7 @@ export default function PaystackCheckoutScreen() {
   // Native WebView checkout
   return (
     <SafeAreaView className="flex-1 bg-white" edges={["top"]}>
+      <StatusBar style="dark" />
       <View className="flex-row items-center justify-between px-4 py-3 bg-white border-b border-slate-100">
         <TouchableOpacity onPress={handleCancel} className="p-2">
           <Ionicons name="close" size={24} color="#0f766e" />
